@@ -1,39 +1,32 @@
-cd LMS-PROJECT
+cd EXAM PORTAL
 
 npm init -y
 
 npm install --save-dev concurrently
 
 {
-  "name": "project-name",
+  "name": "exam-portal",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "start": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "cd server && npm start",
-    "client": "cd client && npm start",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.2.1"
   }
 }
 
-in client
-"scripts": {
-  "start": "react-scripts start"
-}
+in client &
+in server - check package.json for scripts
 
-in server
-"scripts": {
-  "start": "node index.js"  
-}
-
+cd to main project
 npm start
 
 
