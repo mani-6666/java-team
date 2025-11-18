@@ -1,5 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";     // or userSidebar
 import Navbar from "./components/Navbar";       // or userNavbar
@@ -8,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Register from "./pages/Register";
 import Userlogin from "./pages/Userlogin";
 import Mainlogin from "./pages/Mainlogin";
+import Logout from "./pages/Logout";
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -37,16 +37,10 @@ export default function App() {
           {/* PAGE ROUTES */}
           <main className="flex-1 overflow-y-auto p-6">
             <Routes>
-              {/* MAIN DASHBOARD */}
-              <Route path="/dashboard" element={<Dashboard />} />
-
-              {/* AUTH PAGES */}
+              <Route path="/" element={<Dashboard />} />
               <Route path="/register" element={<Register />} />
               <Route path="/userlogin" element={<Userlogin />} />
               <Route path="/mainlogin" element={<Mainlogin />} />
-
-              {/* DEFAULT REDIRECT */}
-              <Route path="*" element={<Navigate to="/dashboard" />} />
             </Routes>
           </main>
         </div>
