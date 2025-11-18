@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
-import Sidebar from "./components/Sidebar";     // or userSidebar
-import Navbar from "./components/Navbar";       // or userNavbar
+import Sidebar from "./components/Sidebar";    
+import Navbar from "./components/Navbar";      
 
 import Dashboard from "./pages/Dashboard";
 import Register from "./pages/Register";
