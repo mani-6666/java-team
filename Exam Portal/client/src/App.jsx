@@ -1,39 +1,62 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
-import Sidebar from "./components/Sidebar";
-import Navbar from "./components/Navbar";
+import Sidebar from "./components/Sidebar";    
+import Navbar from "./components/Navbar";      
 
 import Dashboard from "./pages/Dashboard";
 import Register from "./pages/Register";
 import Userlogin from "./pages/Userlogin";
 import Mainlogin from "./pages/Mainlogin";
+import Logout from "./pages/Logout";
 
 export default function App() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   return (
-    <Router>
-      <div className="flex w-full min-h-screen bg-[#f4f6fb] dark:bg-[#181a1e]">
+    <BrowserRouter>
+      <div className="flex h-screen dark:bg-[#0D1117] bg-gray-50 overflow-hidden">
 
-        {/* Sidebar */}
-        <Sidebar />
+        {/* SIDEBAR + BACKDROP */}
+        <>
+          <Sidebar isOpen={isSidebarOpen} />
 
-        {/* Main Layout */}
-        <div className="flex-1 ml-64 flex flex-col">
+          {isSidebarOpen && (
+            <div
+              className="fixed inset-0 bg-black/50 z-40 md:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
+        </>
 
-          {/* Navbar */}
-          <Navbar />
+        {/* MAIN CONTENT */}
+        <div className="flex flex-1 flex-col overflow-hidden md:pl-64">
 
-          {/* Page Content */}
-          <div className="p-6">
+          {/* NAVBAR */}
+          <Navbar onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)} />
+
+          {/* PAGE ROUTES */}
+          <main className="flex-1 overflow-y-auto p-6">
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+
+              {/* Default Redirect */}
+              <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+
+              {/* Admin Pages */}
+              <Route path="/admin/dashboard" element={<Dashboard />} />
+              <Route path="/admin/logout" element={<Logout />} />
+
+              {/* Auth Pages */}
               <Route path="/register" element={<Register />} />
               <Route path="/userlogin" element={<Userlogin />} />
               <Route path="/mainlogin" element={<Mainlogin />} />
-            </Routes>
-          </div>
 
+              {/* 404 Page */}
+              <Route path="*" element={<div className="p-10">404 - Page not found</div>} />
+
+            </Routes>
+          </main>
         </div>
       </div>
-    </Router>
+    </BrowserRouter>
   );
 }
