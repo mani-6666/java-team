@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";     // or userSidebar
 import Navbar from "./components/Navbar";       // or userNavbar
@@ -37,10 +37,22 @@ export default function App() {
           {/* PAGE ROUTES */}
           <main className="flex-1 overflow-y-auto p-6">
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+
+              {/* Default Redirect */}
+              <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+
+              {/* Admin Pages */}
+              <Route path="/admin/dashboard" element={<Dashboard />} />
+              <Route path="/admin/logout" element={<Logout />} />
+
+              {/* Auth Pages */}
               <Route path="/register" element={<Register />} />
               <Route path="/userlogin" element={<Userlogin />} />
               <Route path="/mainlogin" element={<Mainlogin />} />
+
+              {/* 404 Page */}
+              <Route path="*" element={<div className="p-10">404 - Page not found</div>} />
+
             </Routes>
           </main>
         </div>
