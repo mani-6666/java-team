@@ -1,22 +1,39 @@
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
 import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
+
 import Dashboard from "./pages/Dashboard";
+import Register from "./pages/Register";
+import Userlogin from "./pages/Userlogin";
+import Mainlogin from "./pages/Mainlogin";
 
-function App() {
+export default function App() {
   return (
-    <div className="flex w-full min-h-screen bg-[#f4f6fb] dark:bg-[#181a1e]">
+    <Router>
+      <div className="flex w-full min-h-screen bg-[#f4f6fb] dark:bg-[#181a1e]">
 
-      <Sidebar />
-      <div className="flex-1 ml-64 flex flex-col">
+        {/* Sidebar */}
+        <Sidebar />
 
-        <Navbar />
-        <div className="p-6">
-          
-          <Dashboard />
+        {/* Main Layout */}
+        <div className="flex-1 ml-64 flex flex-col">
+
+          {/* Navbar */}
+          <Navbar />
+
+          {/* Page Content */}
+          <div className="p-6">
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/userlogin" element={<Userlogin />} />
+              <Route path="/mainlogin" element={<Mainlogin />} />
+            </Routes>
+          </div>
+
         </div>
       </div>
-    </div>
+    </Router>
   );
 }
-
-export default App;
