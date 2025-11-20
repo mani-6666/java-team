@@ -1,8 +1,8 @@
 
 const express = require("express");
 const router = express.Router();
-const pool = require("../config/db");
-const verifyToken = require("../middleware/verifyToken");
+const pool = require("../dbconfig/db");
+const verifyToken = require("../authentication/verifyToken");
 
 
 router.post("/logout", verifyToken, (req, res) => {
@@ -16,7 +16,9 @@ router.get("/profile/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
 
     const result = await pool.query(
-     ,
+      `SELECT id, "fullName", email, role, "organizationId"
+       FROM "Users"
+       WHERE id = $1`,
       [id]
     );
 

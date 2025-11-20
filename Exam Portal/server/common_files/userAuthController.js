@@ -1,12 +1,12 @@
-// src/controllers/userAuthController.js
+
 const express = require("express");
 const router = express.Router();
 
 const bcrypt = require("bcryptjs");
-const pool = require("../config/db");
-const issueToken = require("../middleware/issueToken");
+const pool = require("../dbconfig/db");
+const issueToken = require("../authentication/issueToken");
 
-// REGISTER USER (PURE SQL)
+
 router.post("/register", async (req, res) => {
   try {
     const { fullName, email, password, organizationId } = req.body;
@@ -19,7 +19,10 @@ router.post("/register", async (req, res) => {
 const now = new Date();
 
     const result = await pool.query(
-     ,
+      `INSERT INTO "Users"
+       ("fullName", email, password, role, "organizationId", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, 'user', $4, $5, $6)
+       RETURNING id, "fullName", email, role, "organizationId"`,
       [fullName, email, hashed, organizationId, now, now]
     );
 
@@ -34,13 +37,13 @@ const now = new Date();
   }
 });
 
-// LOGIN USER (PURE SQL)
+
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const result = await pool.query(
-     ,
+      `SELECT * FROM "Users" WHERE email = $1`,
       [email]
     );
 
