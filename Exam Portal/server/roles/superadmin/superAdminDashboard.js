@@ -1,13 +1,16 @@
-import express from "express";
-import db from "../config/database.js";
-
+const express = require("express");
+const db = require("../config/database");
 const router = express.Router();
+
+// DASHBOARD SUMMARY
 router.get("/summary", async (req, res) => {
   try {
     const totalClientsResult = await db.query(`SELECT COUNT(*) FROM clients`);
+
     const activeSubscribersResult = await db.query(
       `SELECT COUNT(*) FROM clients WHERE status = 'Active'`
     );
+
     const totalRevenueResult = await db.query(
       `SELECT COALESCE(SUM(revenue), 0) AS total FROM clients`
     );
@@ -18,7 +21,7 @@ router.get("/summary", async (req, res) => {
         totalClients: Number(totalClientsResult.rows[0].count),
         activeSubscribers: Number(activeSubscribersResult.rows[0].count),
         totalRevenue: Number(totalRevenueResult.rows[0].total),
-        uptime: "99.99%", // static UI value
+        uptime: "99.99%",
       },
     });
   } catch (error) {
@@ -29,6 +32,8 @@ router.get("/summary", async (req, res) => {
     });
   }
 });
+
+// CLIENT LIST FOR SUPER ADMIN
 router.get("/clients", async (req, res) => {
   try {
     const clientsResult = await db.query(
@@ -50,6 +55,7 @@ router.get("/clients", async (req, res) => {
   }
 });
 
+// SUBSCRIPTIONS LIST
 router.get("/subscriptions", async (req, res) => {
   try {
     const subscriptionsResult = await db.query(
@@ -73,6 +79,8 @@ router.get("/subscriptions", async (req, res) => {
     });
   }
 });
+
+// USER ACTIVITY LOGS
 router.get("/activity", async (req, res) => {
   try {
     const logsResult = await db.query(
@@ -94,4 +102,4 @@ router.get("/activity", async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;
