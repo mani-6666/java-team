@@ -1,8 +1,16 @@
-import pool from "../congig/db.js";
+const pool=require("../config/db.js")
 
-export const getInvigilatorDashboard = async (req, res) => {
+const invigilatorDashboardRoutes = async (req, res) => {
   try {
-    const invigilatorId = 1; 
+    const invigilatorId = req.user.id; 
+    const role = req.user.role;
+
+    if (role !== "invigilator") {
+      return res.status(403).json({ 
+        message: "Access denied — invigilator only" 
+      });
+    }
+   
     const examsQuery = `
       SELECT exam_id, title
       FROM exams
@@ -18,28 +26,36 @@ export const getInvigilatorDashboard = async (req, res) => {
       )
       ORDER BY submission_id ASC
     `;
-    const allSubmissions = (await pool.query(submissionsQuery, [invigilatorId])).rows;
+    let submissions = (await pool.query(submissionsQuery, [invigilatorId])).rows;
 
    
-    const pendingSubmissions = allSubmissions.filter(s => s.status === "pending");
-    const completedSubmissions = allSubmissions.filter(s => s.status === "completed");
+      if (req.query.evaluatedBy) {
+      submissions = submissions.filter(
+        (s) => String(s.evaluated_by) === String(req.query.evaluatedBy)
+      );
+    }
 
  
     const submissionsByExam = {};
-    allSubmissions.forEach(sub => {
-      if (!submissionsByExam[sub.exam_id]) submissionsByExam[sub.exam_id] = [];
+    submissions.forEach(sub => {
+      if (!submissionsByExam[sub.exam_id]) {
+        submissionsByExam[sub.exam_id] = [];
+      }
       submissionsByExam[sub.exam_id].push(sub);
     });
 
-    return res.json({
+     return res.json({
       exams,
       submissionsByExam,
-      pendingSubmissions,
-      completedSubmissions
+      submissions
     });
 
   } catch (err) {
     console.error("Dashboard Error:", err);
-    return res.status(500).json({ message: "Server error", error: err.message });
+    return res.status(500).json({
+      message: "Server error",
+      error: err.message
+    });
   }
 };
+module.exports={invigilatorDashboardRoutes};
