@@ -35,7 +35,6 @@ const invigilatorDashboardRoutes = async (req, res) => {
       );
     }
 
- 
     const submissionsByExam = {};
     submissions.forEach(sub => {
       if (!submissionsByExam[sub.exam_id]) {
