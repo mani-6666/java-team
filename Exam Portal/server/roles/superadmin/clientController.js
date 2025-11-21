@@ -19,8 +19,7 @@ router.post("/", async (req, res) => {
         message: "Required fields missing"
       });
     }
-
-    // email checking for uniqueness
+    //email check
     const emailCheck = await db.query(
       `SELECT id FROM clients WHERE email = $1`,
       [email]
