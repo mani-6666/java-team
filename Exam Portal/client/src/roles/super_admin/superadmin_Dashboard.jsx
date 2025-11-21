@@ -3,7 +3,7 @@ import { Users, Activity, CheckCircle } from "lucide-react";
 
 export default function Superadmin_Dashboard() {
   const [activeTool, setActiveTool] = useState("impersonate");
-//clients
+
   const clientsData = [
     {
       org: "Tech University",
@@ -14,7 +14,6 @@ export default function Superadmin_Dashboard() {
       status: "Active",
       color: "green",
     },
-    
     {
       org: "Business School",
       plan: "Professional",
