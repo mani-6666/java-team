@@ -1,3 +1,4 @@
+
 const express = require("express");
 const db = require("../config/db");
 
@@ -9,261 +10,233 @@ function getContext(req) {
     userId: req.user?.id || null,
     role: req.user?.role?.toUpperCase() || null,
     orgId: req.user?.organizationId || null,
-    query: req.query || {},
   };
 }
 
 async function validateUserOrg(userId, orgId) {
   if (!orgId) return true;
+
   const q = `SELECT organization_id FROM users WHERE id = $1`;
   const r = await db.query(q, [userId]);
+
   if (!r.rows.length) return false;
   return Number(r.rows[0].organization_id) === Number(orgId);
 }
 
-
-router.post("/messages/tickets", async (req, res) => {
+/* ==========================================================
+   1️⃣ GET CHAT LIST (Left side)
+   GET /chat/list
+========================================================== */
+router.get("/chat/list", async (req, res) => {
   try {
     const { userId, role, orgId } = getContext(req);
-    const { subject, message } = req.body;
+    const filter = (req.query.filter || "all").toLowerCase();
 
-    if (!userId) return res.status(400).json({ success: false, message: "User not found" });
-    if (role !== "USER")
-      return res.status(403).json({ success: false, message: "USER role required" });
-    if (!(await validateUserOrg(userId, orgId)))
-      return res.status(403).json({ success: false, message: "Organization mismatch" });
-
-    if (!subject || !message) {
-      return res.status(400).json({ success: false, message: "Subject & message required" });
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User not found" });
     }
 
-    const ticketQ = `
-      INSERT INTO tickets (user_id, subject, status, created_at, updated_at, last_message_at)
-      VALUES ($1, $2, 'PENDING', NOW(), NOW(), NOW())
-      RETURNING id, subject, status, created_at;
-    `;
-    const t = await db.query(ticketQ, [userId, subject]);
-    const ticket = t.rows[0];
-
-    const msgQ = `
-      INSERT INTO ticket_messages (ticket_id, sender_id, is_admin, message, created_at)
-      VALUES ($1, $2, FALSE, $3, NOW())
-      RETURNING id, message, created_at;
-    `;
-    const m = await db.query(msgQ, [ticket.id, userId, message]);
-
-    return res.status(201).json({
-      success: true,
-      message: "Ticket created",
-      data: { ticket, firstMessage: m.rows[0] },
-    });
-  } catch (err) {
-    console.error("Create ticket error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
-  }
-});
-
-router.get("/messages/tickets", async (req, res) => {
-  try {
-    const { userId, role, orgId, query } = getContext(req);
-    const { status = "all" } = query;
-
-    if (!userId) return res.status(400).json({ success: false, message: "User not found" });
-    if (role !== "USER")
-      return res.status(403).json({ success: false, message: "USER role required" });
-    if (!(await validateUserOrg(userId, orgId)))
-      return res.status(403).json({ success: false, message: "Organization mismatch" });
-
-    const allowedStatuses = ["PENDING", "ACTIVE", "INPROGRESS", "RESOLVED", "CLOSED"];
-
-    const values = [userId];
-    let where = [`t.user_id = $1`];
-
-    if (status.toLowerCase() !== "all") {
-      const S = status.toUpperCase();
-      if (!allowedStatuses.includes(S))
-        return res.status(400).json({ success: false, message: "Invalid status filter" });
-
-      where.push(`t.status = $2`);
-      values.push(S);
+    if (role !== "USER") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Access denied: USER role required" });
     }
 
-    const q = `
-      SELECT
-        t.id,
-        t.subject,
-        t.status,
-        t.created_at,
-        t.updated_at,
-        t.last_message_at,
-        au.full_name AS admin_name,
-        (
-          SELECT tm.message
-          FROM ticket_messages tm
-          WHERE tm.ticket_id = t.id
-          ORDER BY tm.created_at DESC LIMIT 1
+    if (!(await validateUserOrg(userId, orgId))) {
+      return res.status(403).json({
+        success: false,
+        message: "User does not belong to this organization",
+      });
+    }
+
+    let q = `
+      SELECT 
+        c.id AS chat_id,
+        c.status,
+        TO_CHAR(c.created_at, 'HH24:MI') AS time,
+        a.id AS admin_id,
+        a.name AS admin_name,
+        COALESCE(
+          (SELECT message 
+           FROM messages 
+           WHERE chat_id = c.id 
+           ORDER BY created_at DESC 
+           LIMIT 1),
+          ''
         ) AS last_message
-      FROM tickets t
-      LEFT JOIN users au ON au.id = t.admin_id
-      WHERE ${where.join(" AND ")}
-      ORDER BY t.last_message_at DESC;
+      FROM chats c
+      JOIN admins a ON a.id = c.admin_id
+      WHERE c.user_id = $1
     `;
 
-    const r = await db.query(q, values);
+    const params = [userId];
 
-    const tickets = r.rows.map((row) => ({
-      id: row.id,
-      subject: row.subject,
-      status: row.status,
-      adminName: row.admin_name || "Support Admin",
-      lastMessage: row.last_message,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      lastMessageAt: row.last_message_at,
-    }));
+    if (filter !== "all") {
+      q += ` AND LOWER(c.status) = $2`;
+      params.push(filter);
+    }
 
-    return res.json({ success: true, data: tickets });
-  } catch (err) {
-    console.error("List tickets error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
-  }
-});
+    q += ` ORDER BY c.updated_at DESC NULLS LAST, c.created_at DESC`;
 
-
-router.get("/messages/tickets/:ticketId", async (req, res) => {
-  try {
-    const { userId, role, orgId } = getContext(req);
-    const ticketId = Number(req.params.ticketId);
-
-    if (!userId) return res.status(400).json({ success: false, message: "User not found" });
-    if (role !== "USER")
-      return res.status(403).json({ success: false, message: "USER role required" });
-    if (!(await validateUserOrg(userId, orgId)))
-      return res.status(403).json({ success: false, message: "Organization mismatch" });
-
- 
-    const tQ = `
-      SELECT t.*, u.full_name AS admin_name
-      FROM tickets t
-      LEFT JOIN users u ON u.id = t.admin_id
-      WHERE t.id = $1 AND t.user_id = $2
-    `;
-    const tR = await db.query(tQ, [ticketId, userId]);
-    if (!tR.rows.length)
-      return res.status(404).json({ success: false, message: "Ticket not found" });
-
-    const ticket = tR.rows[0];
-
-
-    const msgQ = `
-      SELECT id, message, sender_id, is_admin, created_at
-      FROM ticket_messages
-      WHERE ticket_id = $1
-      ORDER BY created_at ASC;
-    `;
-    const mR = await db.query(msgQ, [ticketId]);
-
-    const messages = mR.rows.map((m) => ({
-      id: m.id,
-      message: m.message,
-      createdAt: m.created_at,
-      isAdmin: m.is_admin,
-      senderType: m.is_admin ? "ADMIN" : "USER",
-      isMine: !m.is_admin,
-    }));
+    const r = await db.query(q, params);
 
     return res.json({
       success: true,
-      data: { ticket, messages },
+      data: r.rows || [],
     });
   } catch (err) {
-    console.error("Get chat error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.error("Chatbox list error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load chat list",
+    });
   }
 });
 
-
-router.post("/messages/tickets/:ticketId/messages", async (req, res) => {
+/* ==========================================================
+   2️⃣ GET CHAT MESSAGES (Right side)
+   GET /chat/messages/:chatId
+========================================================== */
+router.get("/chat/messages/:chatId", async (req, res) => {
   try {
     const { userId, role, orgId } = getContext(req);
-    const ticketId = Number(req.params.ticketId);
-    const { message } = req.body;
+    const chatId = Number(req.params.chatId);
 
-    if (!userId) return res.status(400).json({ success: false, message: "User not found" });
-    if (role !== "USER")
-      return res.status(403).json({ success: false, message: "USER role required" });
-    if (!message || !message.trim())
-      return res.status(400).json({ success: false, message: "Message required" });
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User not found" });
+    }
 
-  
-    const check = await db.query(
-      `SELECT id FROM tickets WHERE id = $1 AND user_id = $2`,
-      [ticketId, userId]
-    );
-    if (!check.rows.length)
-      return res.status(404).json({ success: false, message: "Ticket not found" });
+    if (role !== "USER") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Access denied: USER role required" });
+    }
+
+    if (!(await validateUserOrg(userId, orgId))) {
+      return res.status(403).json({
+        success: false,
+        message: "User does not belong to this organization",
+      });
+    }
 
     const q = `
-      INSERT INTO ticket_messages (ticket_id, sender_id, is_admin, message, created_at)
-      VALUES ($1, $2, FALSE, $3, NOW())
-      RETURNING id, message, created_at;
+      SELECT 
+        m.id,
+        m.chat_id,
+        m.sender_id,
+        m.receiver_id,
+        m.message,
+        TO_CHAR(m.created_at, 'HH12:MI AM') AS time
+      FROM messages m
+      JOIN chats c ON c.id = m.chat_id
+      WHERE m.chat_id = $1
+        AND c.user_id = $2
+      ORDER BY m.created_at ASC
     `;
-    const r = await db.query(q, [ticketId, userId, message]);
+
+    const r = await db.query(q, [chatId, userId]);
+
+    return res.json({
+      success: true,
+      messages: r.rows || [],
+    });
+  } catch (err) {
+    console.error("Chatbox messages error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load messages",
+    });
+  }
+});
+
+/* ==========================================================
+   3️⃣ UPDATE CHAT STATUS (dropdown)
+   PUT /chat/status
+========================================================== */
+router.put("/chat/status", async (req, res) => {
+  try {
+    const { userId, role, orgId } = getContext(req);
+    const { chatId, status } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User not found" });
+    }
+
+    if (role !== "USER") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Access denied: USER role required" });
+    }
+
+    if (!(await validateUserOrg(userId, orgId))) {
+      return res.status(403).json({
+        success: false,
+        message: "User does not belong to this organization",
+      });
+    }
 
     await db.query(
-      `UPDATE tickets SET updated_at = NOW(), last_message_at = NOW() WHERE id = $1`,
-      [ticketId]
+      `UPDATE chats 
+       SET status = $1, updated_at = NOW()
+       WHERE id = $2 AND user_id = $3`,
+      [status, chatId, userId]
     );
-
-    return res.status(201).json({
-      success: true,
-      message: "Message sent",
-      data: r.rows[0],
-    });
-  } catch (err) {
-    console.error("Send message error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
-  }
-});
-
-
-router.put("/messages/tickets/:ticketId/status", async (req, res) => {
-  try {
-    const { userId, role, orgId } = getContext(req);
-    const ticketId = Number(req.params.ticketId);
-    const { status } = req.body;
-
-    if (!userId) return res.status(400).json({ success: false, message: "User not found" });
-    if (role !== "USER")
-      return res.status(403).json({ success: false, message: "USER role required" });
-
-    const allowed = ["PENDING", "ACTIVE", "INPROGRESS", "RESOLVED", "CLOSED"];
-    const S = String(status || "").toUpperCase();
-    if (!allowed.includes(S))
-      return res.status(400).json({ success: false, message: "Invalid status" });
-
-    const t = await db.query(
-      `SELECT id FROM tickets WHERE id = $1 AND user_id = $2`,
-      [ticketId, userId]
-    );
-    if (!t.rows.length)
-      return res.status(404).json({ success: false, message: "Ticket not found" });
-
-    const q = `
-      UPDATE tickets SET status = $1, updated_at = NOW()
-      WHERE id = $2
-      RETURNING id, subject, status, updated_at;
-    `;
-    const r = await db.query(q, [S, ticketId]);
 
     return res.json({
       success: true,
       message: "Status updated",
-      data: r.rows[0],
     });
   } catch (err) {
-    console.error("Status update error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.error("Chatbox status error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update status",
+    });
+  }
+});
+
+/* ==========================================================
+   4️⃣ SEND MESSAGE (HTTP fallback if WS fails)
+   POST /chat/send
+========================================================== */
+router.post("/chat/send", async (req, res) => {
+  try {
+    const { userId, role, orgId } = getContext(req);
+    const { chatId, senderId, receiverId, message } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User not found" });
+    }
+
+    if (role !== "USER") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Access denied: USER role required" });
+    }
+
+    if (!(await validateUserOrg(userId, orgId))) {
+      return res.status(403).json({
+        success: false,
+        message: "User does not belong to this organization",
+      });
+    }
+
+    await db.query(
+      `INSERT INTO messages (chat_id, sender_id, receiver_id, message)
+       VALUES ($1,$2,$3,$4)`,
+      [chatId, senderId, receiverId, message]
+    );
+
+    return res.json({
+      success: true,
+      message: "Message stored",
+    });
+  } catch (err) {
+    console.error("Chatbox send error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send message",
+    });
   }
 });
 
