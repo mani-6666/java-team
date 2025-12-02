@@ -1,97 +1,117 @@
-import express from "express";
-import db from "../config/database.js";
-
+const express = require("express");
+const db = require("../config/database");
 const router = express.Router();
 router.get("/summary", async (req, res) => {
   try {
-    const totalClientsResult = await db.query(`SELECT COUNT(*) FROM clients`);
-    const activeSubscribersResult = await db.query(
-      `SELECT COUNT(*) FROM clients WHERE status = 'Active'`
-    );
-    const totalRevenueResult = await db.query(
-      `SELECT COALESCE(SUM(revenue), 0) AS total FROM clients`
-    );
+    const totalClientsQuery = `SELECT COUNT(*) AS total FROM clients`;
+    const userActivityQuery = `SELECT COUNT(*) AS total FROM useractivity`; 
+    const activeSubscriptionsQuery = `SELECT COUNT(*) AS total FROM clients WHERE status = 'Active'`;
 
-    return res.json({
+    const totalClients = await db.query(totalClientsQuery);
+    const userActivity = await db.query(userActivityQuery);
+    const activeSubscriptions = await db.query(activeSubscriptionsQuery);
+
+    res.json({
       success: true,
       data: {
-        totalClients: Number(totalClientsResult.rows[0].count),
-        activeSubscribers: Number(activeSubscribersResult.rows[0].count),
-        totalRevenue: Number(totalRevenueResult.rows[0].total),
-        uptime: "99.99%", // static UI value
-      },
+        totalClients: Number(totalClients.rows[0].total),
+        userActivityCount: Number(userActivity.rows[0].total),
+        activeSubscriptions: Number(activeSubscriptions.rows[0].total),
+        uptime: "99.99%",
+      }
     });
-  } catch (error) {
-    return res.status(500).json({
+
+  } catch (err) {
+    res.status(500).json({
       success: false,
       message: "Failed to load dashboard summary",
-      error: error.message,
+      error: err.message
     });
   }
 });
+
+// ALL CLIENTS TABLE
 router.get("/clients", async (req, res) => {
   try {
-    const clientsResult = await db.query(
-      `SELECT organization, subscriptionplan, users, exam, revenue, status, createdat 
-       FROM clients 
-       ORDER BY createdat DESC`
-    );
+    const query = `
+      SELECT 
+        id,
+        organization AS organization,
+        subscriptionPlan AS subscriptionPlan,
+        users,
+        exam,
+        revenue,
+        status,
+        createdAt
+      FROM clients
+      ORDER BY createdAt DESC
+    `;
 
-    return res.json({
+    const results = await db.query(query);
+
+    res.json({
       success: true,
-      data: clientsResult.rows,
+      data: results.rows
     });
-  } catch (error) {
-    return res.status(500).json({
+
+  } catch (err) {
+    res.status(500).json({
       success: false,
       message: "Failed to fetch clients",
-      error: error.message,
+      error: err.message
     });
   }
 });
-
 router.get("/subscriptions", async (req, res) => {
   try {
-    const subscriptionsResult = await db.query(
-      `SELECT s.*, 
-              c.organization AS client_organization,
-              c.subscriptionplan AS client_subscription_plan
-       FROM subscriptions s
-       LEFT JOIN clients c ON s.clientid = c.id
-       ORDER BY s.createdat DESC`
-    );
+    const query = `
+      SELECT 
+        s.*, 
+        c.organization AS clientOrganization,
+        c.subscriptionPlan AS plan
+      FROM subscriptions s
+      LEFT JOIN clients c ON s.clientId = c.id
+      ORDER BY s.createdAt DESC
+    `;
+    const results = await db.query(query);
 
-    return res.json({
+    res.json({
       success: true,
-      data: subscriptionsResult.rows,
+      data: results.rows
     });
-  } catch (error) {
-    return res.status(500).json({
+
+  } catch (err) {
+    res.status(500).json({
       success: false,
       message: "Failed to load subscriptions",
-      error: error.message,
+      error: err.message
     });
   }
 });
+
+// USER ACTIVITY LOGS
 router.get("/activity", async (req, res) => {
   try {
-    const logsResult = await db.query(
-      `SELECT * FROM useractivity 
-       ORDER BY timestamp DESC 
-       LIMIT 20`
-    );
+    const query = `
+      SELECT *
+      FROM useractivity
+      ORDER BY timestamp DESC
+      LIMIT 20
+    `;
+    const logs = await db.query(query);
 
-    return res.json({
+    res.json({
       success: true,
-      data: logsResult.rows,
+      data: logs.rows
     });
-  } catch (error) {
-    return res.status(500).json({
+
+  } catch (err) {
+    res.status(500).json({
       success: false,
-      message: "Failed to fetch user activity logs",
-      error: error.message,
+      message: "Failed to fetch activity logs",
+      error: err.message
     });
   }
 });
 
-export default router;
+module.exports = router;
