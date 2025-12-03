@@ -69,10 +69,6 @@ router.post("/login", async (req, res) => {
       if (asiResult.rows.length > 0) {
         const asi = asiResult.rows[0];
 
-        // if (asi.status !== "active") {
-        //   return res.status(403).json({ message: "Account inactive" });
-        // }
-
         const match = await bcrypt.compare(password, asi.password_hash);
         if (!match) {
           return res.status(400).json({ message: "Invalid credentials" });
