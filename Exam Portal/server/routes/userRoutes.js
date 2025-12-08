@@ -3,6 +3,7 @@ const verifyToken = require("../authentication/VerifyToken.js");
 
 const dashboardController = require("../controllers/userDashboard.js");
 const userExamsController = require("../controllers/userExams.js");
+const studyMaterialsController = require("../controllers/studyMaterials.js");
 
 const router = express.Router();
 
@@ -26,5 +27,6 @@ router.use("/", dashboardController);
 
 
 router.use("/", userExamsController);
+router.use("/", studyMaterialsController); 
 
 module.exports = router;
