@@ -7,7 +7,7 @@ const studyMaterialsController = require("../controllers/studyMaterials.js");
 const userAnalyticsController = require("../controllers/userAnalytics.js");
 const userAchievementsController = require("../controllers/userAchievements.js");
 const userProfileController = require("../controllers/userProfile.js");
-
+const userChatboxController = require("../controllers/userChatbox");
 const router = express.Router();
 
 
@@ -38,7 +38,9 @@ router.use("/", studyMaterialsController);
 router.use("/", userAnalyticsController);
 router.use("/", userAchievementsController);
 router.use("/", userProfileController);
+router.use("/", userChatboxController);
 
 
 
 module.exports = router;
+
