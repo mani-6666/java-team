@@ -7,28 +7,27 @@ function getContext(req) {
   return {
     userId: req.user?.id || null,
     role: req.user?.role?.toUpperCase() || null,
-    orgId: req.user?.organizationId || null,
+    orgId: req.user?.organizationId || req.user?.organization_id || null,
     query: req.query || {},
   };
 }
 
 async function validateUserOrg(userId, orgId) {
-  
   if (!orgId) return true;
 
-  const q = `SELECT organization_id FROM users WHERE id = $1`;
+  const q = `SELECT org_id FROM users WHERE user_id = $1`;
   const r = await db.query(q, [userId]);
 
   if (!r.rows.length) return false;
-  return Number(r.rows[0].organization_id) === Number(orgId);
+  return String(r.rows[0].org_id) === String(orgId);
 }
 
 function formatAchievementRow(row) {
   return {
-    id: row.id,
+    id: row.achievement_id,
     title: row.title,
     description: row.description,
-    icon: row.icon || null, 
+    criteria: row.criteria || null,
     status: row.unlocked_at ? "Unlocked" : "Locked",
     unlockedAt: row.unlocked_at || null,
   };
@@ -58,17 +57,17 @@ router.get("/achievements/overview", async (req, res) => {
 
     const q = `
       SELECT 
-        a.id,
+        a.achievement_id,
         a.title,
         a.description,
-        a.icon,
+        a.criteria,
         ua.unlocked_at
       FROM achievements a
       LEFT JOIN user_achievements ua
-        ON ua.achievement_id = a.id
+        ON ua.achievement_id = a.achievement_id
        AND ua.user_id = $1
-      WHERE a.is_active = TRUE
-      ORDER BY a.id ASC
+      WHERE a.is_deleted = FALSE
+      ORDER BY a.achievement_id ASC
     `;
     const r = await db.query(q, [userId]);
     const rows = r.rows || [];
@@ -82,7 +81,6 @@ router.get("/achievements/overview", async (req, res) => {
     const unlocked = unlockedAchievements.length;
     const locked = total - unlocked;
 
-    // Recent achievements = only unlocked, newest first
     const recentAchievements = [...unlockedAchievements]
       .sort((a, b) => {
         const da = a.unlockedAt ? new Date(a.unlockedAt).getTime() : 0;
@@ -131,13 +129,13 @@ router.get("/achievements/stats", async (req, res) => {
 
     const q = `
       SELECT 
-        a.id,
+        a.achievement_id,
         ua.unlocked_at
       FROM achievements a
       LEFT JOIN user_achievements ua
-        ON ua.achievement_id = a.id
+        ON ua.achievement_id = a.achievement_id
        AND ua.user_id = $1
-      WHERE a.is_active = TRUE
+      WHERE a.is_deleted = FALSE
     `;
     const r = await db.query(q, [userId]);
     const rows = r.rows || [];
@@ -183,20 +181,20 @@ router.get("/achievements/list", async (req, res) => {
 
     const q = `
       SELECT 
-        a.id,
+        a.achievement_id,
         a.title,
         a.description,
-        a.icon,
+        a.criteria,
         ua.unlocked_at
       FROM achievements a
       LEFT JOIN user_achievements ua
-        ON ua.achievement_id = a.id
+        ON ua.achievement_id = a.achievement_id
        AND ua.user_id = $1
-      WHERE a.is_active = TRUE
+      WHERE a.is_deleted = FALSE
       ORDER BY 
         CASE WHEN ua.unlocked_at IS NULL THEN 1 ELSE 0 END,
         ua.unlocked_at DESC NULLS LAST,
-        a.id ASC
+        a.achievement_id ASC
     `;
     const r = await db.query(q, [userId]);
     const rows = r.rows || [];

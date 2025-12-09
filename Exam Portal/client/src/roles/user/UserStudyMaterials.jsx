@@ -1,64 +1,18 @@
 import UserLayout from "../usercomponents/UserLayout";
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
+import axios from "axios";
 import { FileText, Search, ChevronDown, ChevronUp } from "lucide-react";
 
-const materialsData = [
-  {
-    id: 1,
-    title: "Mathematics Previous Paper",
-    description: "Comprehensive guide covering all topics",
-    filterName: "Test Paper",
-    type: "PDF",
-    size: "3.8 MB",
-    uploadedAt: "2024-10-15",
-    pdfUrl: "https://www.adobe.com/support/products/enterprise/knowledgecenter/media/c4611_sample_explain.pdf"
-  },
-  {
-    id: 2,
-    title: "Mathematics Exam Solutions",
-    description: "Chapter-wise solved problems",
-    filterName: "Model Question Paper",
-    type: "PDF",
-    size: "3.2 MB",
-    uploadedAt: "2024-10-15",
-    pdfUrl: "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-file.pdf"
-  },
-  {
-    id: 3,
-    title: "Chemistry Exam Questions",
-    description: "Complete lab procedures and safety guidelines",
-    filterName: "Mock Test Paper",
-    type: "PDF",
-    size: "4.1 MB",
-    uploadedAt: "2024-10-15",
-    pdfUrl: "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-file.pdf"
-  },
-  {
-    id: 4,
-    title: "Model Question Paper 2024",
-    description: "Based on updated exam pattern",
-    filterName: "Model Question Paper",
-    type: "PDF",
-    size: "2.5 MB",
-    uploadedAt: "2024-10-12",
-    pdfUrl: "https://www.adobe.com/support/products/enterprise/knowledgecenter/media/c4611_sample_explain.pdf"
-  },
-  {
-    id: 5,
-    title: "Programming Questions",
-    description: "Based on updated exam pattern",
-    filterName: "Model Question Paper",
-    type: "PDF",
-    size: "2.5 MB",
-    uploadedAt: "2024-10-12",
-    pdfUrl: "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-file.pdf"
-  }
+const categoryFilters = [
+  "Materials",
+  "Model Question Paper",
+  "Test Paper",
+  "Mock Test Paper",
+  "Lab Manual"
 ];
 
-const categoryFilters = ["Materials", "Model Question Paper", "Test Paper", "Mock Test Paper"];
-
-function MaterialRow({ material, activeFilter }) {
-  const handleViewPDF = () => window.open(material.pdfUrl, "_blank");
+function MaterialRow({ material }) {
+  const handleViewPDF = () => window.open(material.viewUrl, "_blank");
 
   return (
     <div className="
@@ -83,17 +37,25 @@ function MaterialRow({ material, activeFilter }) {
 
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px]">
             <span className="text-gray-700 dark:text-gray-300 font-medium">
-              {activeFilter === "Materials" ? material.filterName : activeFilter}
+              {material.material_type}
             </span>
+
             <span className="w-1 h-1 rounded-full bg-gray-400" />
+
             <span className="px-2 py-[2px] rounded-md bg-red-500 text-white text-[11px]">
               PDF
             </span>
+
             <span className="w-1 h-1 rounded-full bg-gray-400" />
-            <span className="text-gray-500 dark:text-gray-400">{material.size}</span>
-            <span className="w-1 h-1 rounded-full bg-gray-400" />
+
             <span className="text-gray-500 dark:text-gray-400">
-              Uploaded: {material.uploadedAt}
+              {material.file_size_mb} MB
+            </span>
+
+            <span className="w-1 h-1 rounded-full bg-gray-400" />
+
+            <span className="text-gray-500 dark:text-gray-400">
+              Uploaded: {material.uploaded_at?.slice(0, 10)}
             </span>
           </div>
         </div>
@@ -110,22 +72,37 @@ function MaterialRow({ material, activeFilter }) {
 }
 
 export default function StudyMaterials() {
+  const BASE_URL = "http://localhost:5000/api/user";
+
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Materials");
   const [dropdown, setDropdown] = useState(false);
+  const [materials, setMaterials] = useState([]);
 
-  const filteredMaterials = useMemo(() => {
-    return materialsData.filter((m) => {
-      const term = search.trim().toLowerCase();
-      const matchesSearch = !term || m.title.toLowerCase().includes(term);
+  async function loadMaterials() {
+    try {
+      const params = {};
 
-      const matchesCategory =
-        categoryFilter === "Materials" ||
-        m.filterName.toLowerCase() === categoryFilter.toLowerCase();
+      if (search.trim()) params.search = search.trim();
+      if (categoryFilter !== "Materials") params.dropdown = categoryFilter;
 
-      return matchesSearch && matchesCategory;
-    });
+      const res = await axios.get(`${BASE_URL}/materials`, { params });
+
+      const list = res.data?.data || []; 
+      setMaterials(list);
+
+    } catch (err) {
+      console.error(err);
+      setMaterials([]);
+    }
+  }
+
+  useEffect(() => {
+    const delay = setTimeout(() => loadMaterials(), 300);
+    return () => clearTimeout(delay);
   }, [search, categoryFilter]);
+
+  const filteredMaterials = useMemo(() => materials, [materials]);
 
   return (
     <UserLayout>
@@ -214,7 +191,7 @@ export default function StudyMaterials() {
               </div>
             ) : (
               filteredMaterials.map((m) => (
-                <MaterialRow key={m.id} material={m} activeFilter={categoryFilter} />
+                <MaterialRow key={m.id} material={m} />
               ))
             )}
           </div>

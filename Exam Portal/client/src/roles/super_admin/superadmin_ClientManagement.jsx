@@ -5,490 +5,727 @@ import {
   Eye,
   ChevronDown,
   X,
-  Search as SearchIcon,
   Plus,
+  Edit,
+  Trash2,
 } from "lucide-react";
 
 const API_BASE = "http://localhost:5000/superadmin";
 
 export default function Superadmin_ClientManagement() {
+  // UI states
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("All");
+  const [filterStatus, setFilterStatus] = useState("All"); // All, Subscription, Name
   const [subFilter, setSubFilter] = useState("");
   const [openFilter, setOpenFilter] = useState(false);
   const [openSubFilter, setOpenSubFilter] = useState(null);
-  const [sortOrder, setSortOrder] = useState("");
+
+  const [sortOrder, setSortOrder] = useState(""); // asc / desc (when Name)
   const [modalOpen, setModalOpen] = useState(false);
-  const [editData, setEditData] = useState(null);
-  const [openMenuId, setOpenMenuId] = useState(null);
+  const [editOrg, setEditOrg] = useState(null); // used when opening edit modal (we keep edit modal for full edit if needed)
+
+  const [statusMenuOrg, setStatusMenuOrg] = useState(null); // org_id for open small status menu per row
   const [infoModal, setInfoModal] = useState(null);
+
+  // Add-org users UI
+  const [orgUsers, setOrgUsers] = useState([{ email: "", role: "Admin", fullName: "" }]);
+
+  // data
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const perPage = 4; // rows per page — adjust to match Figma
+  const totalPages = Math.max(1, Math.ceil(clients.length / perPage));
 
   const filterRef = useRef(null);
   const menuRef = useRef(null);
 
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(false);
-
+  /* -----------------------
+     Fetch Organizations
+     GET /superadmin
+     ----------------------- */
   const fetchClients = async () => {
     try {
       setLoading(true);
-
-      const res = await axios.get(`${API_BASE}/clients`, {
-        params: {
-          search,
-          status: filterStatus !== "All" ? subFilter : "",
-          sort: sortOrder,
-          page: 1,
-          limit: 100,
-        },
-      });
-
+      const res = await axios.get(`${API_BASE}`);
       let data = res.data.data || [];
 
-      if (sortOrder === "asc") {
-        data = [...data].sort((a, b) =>
-          a.organizationname.localeCompare(b.organizationname)
-        );
-      } else if (sortOrder === "desc") {
-        data = [...data].sort((a, b) =>
-          b.organizationname.localeCompare(a.organizationname)
-        );
-      }
+      // normalize keys if backend returns different names (we expect name, org_id, subscription, contact_person, contact_email)
+      data = data.map((d) => ({
+        name: d.name ?? d.organizationname ?? "",
+        org_id: d.org_id ?? d.organizationid ?? d.organizationid?.toString(),
+        subscription: d.subscription ?? d.plan_name ?? d.subscription,
+        contact_person: d.contact_person ?? d.contactperson ?? d.contact_person,
+        contact_email: d.contact_email ?? d.contact_email ?? d.contact_email ?? d.contactemail ?? d.contact_email,
+        description: d.description ?? "",
+        status: (d.status ?? "active").toLowerCase(),
+        raw: d,
+      }));
 
       setClients(data);
     } catch (err) {
-      console.error("Failed to load clients:", err);
+      console.error("Failed to load organizations:", err);
+      setClients([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // initial load + filters watch
   useEffect(() => {
     fetchClients();
-  }, [search, filterStatus, subFilter, sortOrder]);
+  }, []);
 
+  /* -----------------------
+     Click outside for dropdowns
+     ----------------------- */
   useEffect(() => {
     function handleClick(e) {
       if (filterRef.current && !filterRef.current.contains(e.target)) {
         setOpenFilter(false);
         setOpenSubFilter(null);
       }
-
       if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setOpenMenuId(null);
+        setStatusMenuOrg(null);
       }
     }
-
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const superadmin_clientManagement_save = async (e) => {
-    e.preventDefault();
+  /* -----------------------
+     Derived: filtered + sorted list
+     ----------------------- */
+  const getFilteredSorted = () => {
+    let data = [...clients];
 
+    // search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      data = data.filter(
+        (c) =>
+          (c.name || "").toLowerCase().includes(q) ||
+          (c.contact_email || "").toLowerCase().includes(q)
+      );
+    }
+
+    // subscription filter
+    if (filterStatus === "Subscription" && subFilter) {
+      data = data.filter((c) =>
+        (c.subscription || "none").toLowerCase() === subFilter.toLowerCase()
+      );
+    }
+
+    // name sorting if selected
+    if (filterStatus === "Name" && sortOrder) {
+      data.sort((a, b) =>
+        sortOrder === "asc" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+      );
+    }
+
+    return data;
+  };
+
+  const filteredData = getFilteredSorted();
+
+  // update pagination if filtered length changes
+  useEffect(() => {
+    const newTotal = Math.max(1, Math.ceil(filteredData.length / perPage));
+    if (currentPage > newTotal) setCurrentPage(newTotal);
+  }, [search, filterStatus, subFilter, sortOrder, clients]); // eslint-disable-line
+
+  /* -----------------------
+     Pagination helpers
+     ----------------------- */
+  const totalFilteredPages = Math.max(1, Math.ceil(filteredData.length / perPage));
+  const pageItems = () => {
+    // produce an array of page numbers with ellipsis similar to Figma: show first 3, last 1 if many.
+    const pages = [];
+    const maxShow = 5;
+    if (totalFilteredPages <= maxShow) {
+      for (let i = 1; i <= totalFilteredPages; i++) pages.push(i);
+    } else {
+      // show current, neighbors, first, last
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalFilteredPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalFilteredPages - 2) pages.push("...");
+      pages.push(totalFilteredPages);
+    }
+    return pages;
+  };
+
+  /* -----------------------
+     Update organization status (from small status menu)
+     Uses PUT /superadmin/:orgId
+     ----------------------- */
+  const updateOrgStatus = async (org, newStatus) => {
+    try {
+      // Build payload using existing name/description and new status
+      // Backend expects organizationName, description, status
+      await axios.put(`${API_BASE}/${org.org_id}`, {
+        organizationName: org.name,
+        description: org.description || "",
+        status: newStatus.toLowerCase(),
+      });
+
+      // refresh list
+      await fetchClients();
+      setStatusMenuOrg(null);
+    } catch (err) {
+      console.error("Update status failed", err);
+      alert("Failed to update status");
+    }
+  };
+
+  /* -----------------------
+     Delete organization
+     DELETE /superadmin/:orgId
+     ----------------------- */
+  const deleteOrganization = async (orgId) => {
+    if (!window.confirm("Are you sure you want to delete this organization?")) return;
+    try {
+      await axios.delete(`${API_BASE}/${orgId}`);
+      await fetchClients();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete organization");
+    }
+  };
+
+  /* -----------------------
+     Open Info Popup
+     GET /superadmin/:orgId/info
+     ----------------------- */
+  const openInfo = async (org) => {
+    try {
+      const res = await axios.get(`${API_BASE}/${org.org_id}/info`);
+      setInfoModal(res.data.data);
+    } catch (err) {
+      console.error("Failed to load info", err);
+      alert("Failed to load information");
+    }
+  };
+
+  /* -----------------------
+     Create Organization + users
+     POST /superadmin  (create org + admin)
+     then POST /superadmin/:orgId/users for extra users
+     ----------------------- */
+  const saveOrganization = async (e) => {
+    e.preventDefault();
+    // read form fields
     const form = new FormData(e.target);
-    const data = {
-      organizationName: form.get("orgName"),
-      organizationId:
-        editData?.organizationid ||
-        "ORG" + Math.floor(1000 + Math.random() * 9000),
-      subscription: editData?.subscription || "Basic",
-      contactPerson: form.get("fullName"),
-      email: form.get("email"),
-      status: form.get("status") || "Active",
-      phone: form.get("phone"),
-      city: form.get("city"),
-      state: form.get("state"),
-      zip: form.get("zip"),
-    };
+    const orgName = form.get("organizationName");
+    const description = form.get("description") || "";
 
     try {
-      if (editData) {
-        await axios.put(`${API_BASE}/clients/${editData.id}`, data);
+      if (editOrg) {
+        // full edit (if you later allow): update org
+        await axios.put(`${API_BASE}/${editOrg.org_id}`, {
+          organizationName: orgName,
+          description,
+          status: editOrg.status || "active",
+        });
       } else {
-        await axios.post(`${API_BASE}/clients`, data);
+        // create org with the first user as admin/contact
+        if (!orgUsers[0] || !orgUsers[0].email || !orgUsers[0].fullName) {
+          alert("Please provide contact person name and email for the first user.");
+          return;
+        }
+
+        const payload = {
+          organizationName: orgName,
+          description,
+          email: orgUsers[0].email,
+          role: orgUsers[0].role,
+          fullName: orgUsers[0].fullName,
+        };
+
+        const res = await axios.post(`${API_BASE}`, payload);
+
+        // Backend returns organization + contactUser and loginPassword
+        const createdOrg = res.data.organization || res.data.data || res.data.organization; // try variants
+        const orgId = createdOrg?.org_id || createdOrg?.org_id || createdOrg?.org_id || res.data.organization?.org_id;
+
+        // If user added more rows (beyond 1), call POST /superadmin/:orgId/users for each additional
+        if (orgId && orgUsers.length > 1) {
+          for (let i = 1; i < orgUsers.length; i++) {
+            const u = orgUsers[i];
+            // skip empty
+            if (!u.email || !u.fullName) continue;
+            try {
+              await axios.post(`${API_BASE}/${orgId}/users`, {
+                email: u.email,
+                role: u.role,
+                fullName: u.fullName,
+              });
+            } catch (err) {
+              console.warn("Failed to add extra user", u.email, err);
+            }
+          }
+        }
       }
 
-      fetchClients();
+      // close modal and reload
       setModalOpen(false);
-      setEditData(null);
+      setOrgUsers([{ email: "", role: "Admin", fullName: "" }]);
+      setEditOrg(null);
+      await fetchClients();
     } catch (err) {
-      alert(err.response?.data?.message || "Error while saving");
+      console.error(err);
+      const msg = err.response?.data?.message || "Error while saving organization";
+      alert(msg);
     }
   };
 
-  const superadmin_clientManagement_delete = async (id) => {
-    try {
-      await axios.delete(`${API_BASE}/clients/${id}`);
-      fetchClients();
-    } catch (err) {
-      alert("Failed to delete client");
-    }
+  /* -----------------------
+     Add / Remove user rows in Add-org modal
+     ----------------------- */
+  const addUserField = () => {
+    setOrgUsers([...orgUsers, { email: "", role: "Admin", fullName: "" }]);
+  };
+  const removeUserField = (idx) => {
+    setOrgUsers(orgUsers.filter((_, i) => i !== idx));
+  };
+  const updateUserField = (idx, key, val) => {
+    const copy = [...orgUsers];
+    copy[idx][key] = val;
+    setOrgUsers(copy);
   };
 
+  /* -----------------------
+     Render
+     ----------------------- */
   if (loading) {
     return (
-      <div className="p-6 text-xl text-center font-semibold">
-        Loading clients...
-      </div>
+      <div className="p-6 text-center text-lg font-semibold">Loading organizations...</div>
     );
   }
 
+  // slice for current page
+  const pagedData = filteredData.slice((currentPage - 1) * perPage, currentPage * perPage);
+
   return (
     <div className="p-4 sm:p-6 w-full">
-      <div className="w-full bg-white dark:bg-[#181a1e] rounded-xl shadow-lg border border-gray-200 dark:border-[#2b2e33] p-4 sm:p-6">
-
-  
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 w-full">
-          <div className="relative w-full sm:max-w-lg">
-            <SearchIcon
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              placeholder="Search by name or email"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-full border border-gray-300 dark:border-[#2b2e33] bg-white dark:bg-[#202328] text-black dark:text-white"
-            />
-          </div>
-
- 
-          <div className="relative w-full sm:w-auto" ref={filterRef}>
-            <button
-              className="flex items-center justify-between gap-2 bg-white dark:bg-[#202328] border border-gray-300 dark:border-[#2b2e33] rounded-lg px-3 py-2 shadow-sm w-full sm:w-auto text-black dark:text-white"
-              onClick={() => setOpenFilter((s) => !s)}
-            >
-              {filterStatus === "All"
-                ? "All"
-                : filterStatus === "Subscription"
-                ? `Subscription (${subFilter})`
-                : `Name (${sortOrder})`}
-              <ChevronDown size={16} />
-            </button>
-
-            {openFilter && (
-              <div className="absolute right-0 mt-2 w-48 sm:w-52 bg-white dark:bg-[#1f2227] border border-gray-300 dark:border-[#2b2e33] rounded-lg shadow-lg z-[999]">
-
-              
-                <div
-                  className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#2c2f36] cursor-pointer text-black dark:text-white"
-                  onClick={() => {
-                    setFilterStatus("All");
-                    setSubFilter("");
-                    setSortOrder("");
-                    setOpenFilter(false);
-                  }}
-                >
-                  All
-                </div>
-
-                {/* Subscription */}
-                <div>
-                  <div
-                    className="px-4 py-2 flex justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-[#2c2f36] text-black dark:text-white"
-                    onClick={() =>
-                      setOpenSubFilter(
-                        openSubFilter === "Subscription" ? null : "Subscription"
-                      )
-                    }
-                  >
-                    Subscription <ChevronDown size={14} />
-                  </div>
-
-                  {openSubFilter === "Subscription" && (
-                    <div className="bg-gray-50 dark:bg-[#262931]">
-                      {["Active", "Inactive", "Trial"].map((s) => (
-                        <div
-                          key={s}
-                          className="px-4 py-2 hover:bg-gray-200 dark:hover:bg-[#30333a] cursor-pointer text-black dark:text-white"
-                          onClick={() => {
-                            setFilterStatus("Subscription");
-                            setSubFilter(s);
-                            setOpenFilter(false);
-                          }}
-                        >
-                          {s}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Name */}
-                <div>
-                  <div
-                    className="px-4 py-2 flex justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-[#2c2f36] text-black dark:text-white"
-                    onClick={() =>
-                      setOpenSubFilter(openSubFilter === "Name" ? null : "Name")
-                    }
-                  >
-                    Name <ChevronDown size={14} />
-                  </div>
-
-                  {openSubFilter === "Name" && (
-                    <div className="bg-gray-50 dark:bg-[#262931]">
-                      <div
-                        className="px-4 py-2 hover:bg-gray-200 dark:hover:bg-[#30333a] cursor-pointer text-black dark:text-white"
-                        onClick={() => {
-                          setFilterStatus("Name");
-                          setSortOrder("asc");
-                          setOpenFilter(false);
-                        }}
-                      >
-                        Ascending (A → Z)
-                      </div>
-
-                      <div
-                        className="px-4 py-2 hover:bg-gray-200 dark:hover:bg-[#30333a] cursor-pointer text-black dark:text-white"
-                        onClick={() => {
-                          setFilterStatus("Name");
-                          setSortOrder("desc");
-                          setOpenFilter(false);
-                        }}
-                      >
-                        Descending (Z → A)
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+      {/* Top search + filter row (like Figma) */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <div className="relative w-full sm:max-w-lg">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            🔍
+          </span>
+          <input
+            className="w-full pl-10 pr-4 py-2.5 rounded-full border border-gray-300 bg-white text-gray-700"
+            placeholder="Search organization"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
         </div>
 
-        {/* HEADER */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
-          <h3 className="text-lg font-semibold text-black dark:text-white">
-            Client Management
-          </h3>
+        <div className="relative" ref={filterRef}>
+          <button
+            className="flex items-center gap-2 bg-white border rounded-xl px-4 py-2 shadow-sm"
+            onClick={() => setOpenFilter((s) => !s)}
+          >
+            {filterStatus === "All"
+              ? "All"
+              : filterStatus === "Subscription"
+              ? `Subscription${subFilter ? ` (${subFilter})` : ""}`
+              : `Name${sortOrder ? ` (${sortOrder})` : ""}`}
+            <ChevronDown size={16} />
+          </button>
+
+          {openFilter && (
+            <div className="absolute right-0 mt-2 w-56 bg-white border rounded-lg shadow-lg z-50">
+              <div
+                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                onClick={() => {
+                  setFilterStatus("All");
+                  setSubFilter("");
+                  setSortOrder("");
+                  setOpenFilter(false);
+                  setCurrentPage(1);
+                }}
+              >
+                All
+              </div>
+
+              {/* Subscription */}
+              <div>
+                <div
+                  className="px-4 py-2 flex justify-between cursor-pointer hover:bg-gray-100"
+                  onClick={() =>
+                    setOpenSubFilter((s) => (s === "Subscription" ? null : "Subscription"))
+                  }
+                >
+                  Subscription <ChevronDown size={14} />
+                </div>
+                {openSubFilter === "Subscription" && (
+                  <div className="bg-gray-50">
+                    {["Active", "Inactive", "Trial"].map((s) => (
+                      <div
+                        key={s}
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => {
+                          setFilterStatus("Subscription");
+                          setSubFilter(s);
+                          setOpenFilter(false);
+                          setCurrentPage(1);
+                        }}
+                      >
+                        {s}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Name */}
+              <div>
+                <div
+                  className="px-4 py-2 flex justify-between cursor-pointer hover:bg-gray-100"
+                  onClick={() => setOpenSubFilter((s) => (s === "Name" ? null : "Name"))}
+                >
+                  Name <ChevronDown size={14} />
+                </div>
+
+                {openSubFilter === "Name" && (
+                  <div className="bg-gray-50">
+                    <div
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => {
+                        setFilterStatus("Name");
+                        setSortOrder("asc");
+                        setOpenFilter(false);
+                      }}
+                    >
+                      Ascending (A → Z)
+                    </div>
+                    <div
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => {
+                        setFilterStatus("Name");
+                        setSortOrder("desc");
+                        setOpenFilter(false);
+                      }}
+                    >
+                      Descending (Z → A)
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Card container */}
+      <div className="bg-white rounded-xl shadow-lg border p-4 sm:p-6">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-lg font-semibold">Client Management</h3>
+            <p className="text-gray-500 text-sm">All Clients in the system</p>
+          </div>
 
           <button
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 w-full sm:w-auto justify-center"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2"
             onClick={() => {
-              setEditData(null);
+              setEditOrg(null);
+              setOrgUsers([{ email: "", role: "Admin", fullName: "" }]);
               setModalOpen(true);
             }}
           >
-            <Plus size={14} /> Add New Client
+            <Plus size={14} /> Add New Organization
           </button>
         </div>
 
-        {/* TABLE */}
-        <div className="hidden md:block w-full overflow-x-auto">
-          <table className="w-full table-auto text-black dark:text-white text-xs">
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[#eef3ff] dark:bg-[#1c1f24] text-left">
-                <th className="py-2 px-2">Organization Name</th>
-                <th className="py-2 px-2">Organization ID</th>
-                <th className="py-2 px-2">Subscription</th>
-                <th className="py-2 px-2">Contact Person</th>
-                <th className="py-2 px-2">Contact Email</th>
-                <th className="py-2 px-2">Status</th>
-                <th className="py-2 px-2">Actions</th>
+              <tr className="bg-[#eef3ff] text-blue-700">
+                <th className="py-3 px-2 text-left">Organization Name</th>
+                <th className="py-3 px-2 text-left">Organization ID</th>
+                <th className="py-3 px-2 text-left">Subscription</th>
+                <th className="py-3 px-2 text-left">Contact Person</th>
+                <th className="py-3 px-2 text-left">Email</th>
+                <th className="py-3 px-2 text-left">Status</th>
+                <th className="py-3 px-2 text-left">Actions</th>
               </tr>
             </thead>
-
             <tbody ref={menuRef}>
-              {clients.map((c) => (
-                <tr
-                  key={c.id}
-                  className="border-b border-gray-300 dark:border-[#2b2e33] hover:bg-gray-50 dark:hover:bg-[#232529]"
-                >
-                  <td className="py-2 px-2">{c.organizationname}</td>
-                  <td className="py-2 px-2">{c.organizationid}</td>
-                  <td className="py-2 px-2">{c.subscription}</td>
-                  <td className="py-2 px-2">{c.contactperson}</td>
-                  <td className="py-2 px-2">{c.email}</td>
-
-                  <td className="py-2 px-2">
-                    <span
-                      className={`px-2 py-1 text-[10px] rounded-full ${
-                        c.status === "Active"
-                          ? "bg-green-100 dark:bg-green-900 text-green-700"
-                          : c.status === "Trial"
-                          ? "bg-yellow-100 dark:bg-yellow-900 text-yellow-700"
-                          : "bg-red-100 dark:bg-red-900 text-red-700"
-                      }`}
-                    >
-                      {c.status}
-                    </span>
-                  </td>
-
-                  <td className="py-2 px-2 relative">
-                    <button
-                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-[#2d3037]"
-                      onClick={() =>
-                        setOpenMenuId((prev) => (prev === c.id ? null : c.id))
-                      }
-                    >
-                      <Eye size={14} />
-                    </button>
-
-                    {openMenuId === c.id && (
-                      <div className="absolute right-0 top-8 w-28 bg-white dark:bg-[#202328] shadow-md border border-gray-200 dark:border-[#2b2e33] rounded-md z-[999] text-xs">
-                        <div
-                          className="px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-[#2d3037] cursor-pointer text-black dark:text-white"
-                          onClick={() => {
-                            setEditData(c);
-                            setModalOpen(true);
-                            setOpenMenuId(null);
-                          }}
-                        >
-                          Edit
-                        </div>
-
-                        <div
-                          className="px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-[#2d3037] cursor-pointer text-red-600 dark:text-red-300"
-                          onClick={() =>
-                            superadmin_clientManagement_delete(c.id)
-                          }
-                        >
-                          Delete
-                        </div>
-                      </div>
-                    )}
+              {pagedData.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-6 text-center text-gray-500">
+                    No organizations found.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                pagedData.map((org) => (
+                  <tr key={org.org_id} className="border-b hover:bg-gray-50">
+                    <td className="px-2 py-3">{org.name}</td>
+                    <td className="px-2 py-3">{org.org_id}</td>
+                    <td className="px-2 py-3">{org.subscription || "None"}</td>
+                    <td className="px-2 py-3">{org.contact_person}</td>
+                    <td className="px-2 py-3">{org.contact_email}</td>
+
+                    <td className="px-2 py-3">
+                      <span
+                        className={`px-3 py-1 text-xs rounded-full ${
+                          org.status === "active"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-600"
+                        }`}
+                      >
+                        {org.status === "active" ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+
+                    <td className="px-2 py-3 flex items-center gap-3 relative">
+                      {/* View */}
+                      <button
+                        className="p-1 rounded-md hover:bg-gray-100"
+                        onClick={() => openInfo(org)}
+                        title="View Information"
+                      >
+                        <Eye size={16} />
+                      </button>
+
+                      {/* Status edit small menu (pencil icon) */}
+                      <div className="relative">
+                        <button
+                          className="p-1 rounded-md hover:bg-gray-100"
+                          onClick={() =>
+                            setStatusMenuOrg((prev) => (prev === org.org_id ? null : org.org_id))
+                          }
+                          title="Change status"
+                        >
+                          <Edit size={16} />
+                        </button>
+
+                        {statusMenuOrg === org.org_id && (
+                          <div className="absolute right-0 top-8 w-28 bg-white border rounded-md shadow-md z-50 text-sm">
+                            <div
+                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                              onClick={() => updateOrgStatus(org, "Active")}
+                            >
+                              Active
+                            </div>
+                            <div
+                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                              onClick={() => updateOrgStatus(org, "Inactive")}
+                            >
+                              Inactive
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Delete */}
+                      <button
+                        className="p-1 rounded-md hover:bg-gray-100 text-red-600"
+                        onClick={() => deleteOrganization(org.org_id)}
+                        title="Delete organization"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* MOBILE CARDS */}
-        <div className="block md:hidden space-y-4 mt-4">
-          {clients.map((c) => (
-            <div
-              key={c.id}
-              className="p-4 rounded-xl bg-[#f7f8ff] dark:bg-[#1c1f24] border dark:border-[#2b2e33] shadow"
-            >
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="font-semibold text-black dark:text-white">
-                  {c.organizationname}
-                </h2>
+        {/* Pagination (Figma-like) */}
+        <div className="flex items-center justify-center mt-6 gap-2">
+          <button
+            className={`px-3 py-2 rounded-md ${currentPage === 1 ? "bg-gray-100 text-gray-400" : "bg-white border"}`}
+            onClick={() => currentPage > 1 && setCurrentPage((p) => p - 1)}
+            disabled={currentPage === 1}
+          >
+            Prev
+          </button>
 
-                <span
-                  className={`px-3 py-1 text-xs rounded-full ${
-                    c.status === "Active"
-                      ? "bg-green-100 dark:bg-green-900 text-green-300"
-                      : c.status === "Trial"
-                      ? "bg-yellow-100 dark:bg-yellow-900 text-yellow-300"
-                      : "bg-red-100 dark:bg-red-900 text-red-300"
-                  }`}
-                >
-                  {c.status}
-                </span>
-              </div>
+          {pageItems().map((p, idx) =>
+            p === "..." ? (
+              <span key={`dot-${idx}`} className="px-2 py-1 text-gray-400">...</span>
+            ) : (
+              <button
+                key={p}
+                className={`px-3 py-2 rounded-full ${currentPage === p ? "bg-blue-600 text-white" : "bg-white border"}`}
+                onClick={() => setCurrentPage(p)}
+              >
+                {p}
+              </button>
+            )
+          )}
 
-              <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">
-                Plan: <span className="font-medium">{c.subscription}</span>
-              </p>
-
-              <div className="mt-3 flex justify-end gap-3 text-sm">
-                <button
-                  className="text-blue-600 dark:text-blue-400"
-                  onClick={() => {
-                    setEditData(c);
-                    setModalOpen(true);
-                  }}
-                >
-                  Edit
-                </button>
-
-                <button
-                  className="text-red-600 dark:text-red-400"
-                  onClick={() => superadmin_clientManagement_delete(c.id)}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
+          <button
+            className={`px-3 py-2 rounded-md ${currentPage === totalFilteredPages ? "bg-gray-100 text-gray-400" : "bg-white border"}`}
+            onClick={() => currentPage < totalFilteredPages && setCurrentPage((p) => p + 1)}
+            disabled={currentPage === totalFilteredPages}
+          >
+            Next
+          </button>
         </div>
       </div>
 
-      {/* ADD / EDIT MODAL */}
-      {modalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[2000] px-4 sm:px-6">
-          <div className="bg-white dark:bg-[#1c1f24] w-full max-w-3xl sm:max-w-4xl p-4 sm:p-6 rounded-2xl shadow-xl relative max-h-[92vh] overflow-y-auto">
-
+      {/* Info Modal (View) */}
+      {infoModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-60">
+          <div className="bg-white rounded-xl p-6 w-[360px] relative shadow-xl">
             <button
-              className="absolute top-4 right-4 p-2 rounded-full text-black dark:text-white hover:bg-gray-100 dark:hover:bg-[#2d3037]"
-              onClick={() => {
-                setModalOpen(false);
-                setEditData(null);
-              }}
+              className="absolute right-4 top-4"
+              onClick={() => setInfoModal(null)}
             >
-              <X size={20} strokeWidth={2} />
+              <X size={18} />
             </button>
 
-            <h3 className="text-2xl font-semibold text-[#4f6df5] mb-6">
-              {editData ? "Edit Client" : "Add New Client"}
-            </h3>
+            <h3 className="text-lg font-semibold text-[#4f6df5] mb-4">Information</h3>
 
-            <form
-              onSubmit={superadmin_clientManagement_save}
-              className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6"
-            >
-
-              {[
-                { name: "fullName", label: "Full Name", val: "contactperson", req: true },
-                { name: "email", label: "Contact Email", val: "email", req: true },
-                { name: "orgName", label: "Organization Name", val: "organizationname", req: true },
-                { name: "phone", label: "Phone", val: "phone" },
-                { name: "city", label: "City", val: "city" },
-                { name: "state", label: "State", val: "state" },
-                { name: "zip", label: "Zip Code", val: "zip" }
-              ].map((f, i) => (
-                <div key={i}>
-                  <label className="text-sm font-medium dark:text-white">{f.label}</label>
-                  <input
-                    name={f.name}
-                    required={f.req}
-                    defaultValue={editData?.[f.val]}
-                    className="
-                      w-full mt-1 p-3 rounded-lg border 
-                      bg-gray-100 text-black placeholder-gray-500
-                      dark:bg-[#2a2d33] dark:text-white dark:placeholder-gray-400 
-                      dark:border-[#3a3d44]
-                      focus:ring-2 focus:ring-blue-600 focus:border-blue-600
-                    "
-                  />
-                </div>
-              ))}
-
-              <div>
-                <label className="text-sm font-medium dark:text-white">Status</label>
-                <select
-                  name="status"
-                  defaultValue={editData?.status || "Active"}
-                  className="
-                    w-full mt-1 p-3 rounded-lg border 
-                    bg-gray-100 text-black
-                    dark:bg-[#2a2d33] dark:text-white dark:border-[#3a3d44]
-                    focus:ring-2 focus:ring-blue-600 focus:border-blue-600
-                  "
-                >
-                  <option value="Active">Active</option>
-                  <option value="Trial">Trial</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <p>Total Number of Exams</p>
+                <span>{infoModal.totals?.totalExams ?? 0}</span>
               </div>
-
-              <div className="col-span-1 sm:col-span-2 flex justify-center">
-                <button
-                  type="submit"
-                  className="px-10 py-3 bg-blue-600 text-white rounded-lg text-lg"
-                >
-                  Save
-                </button>
+              <div className="flex justify-between">
+                <p>Total Admins</p>
+                <span>{infoModal.totals?.totalAdmins ?? 0}</span>
               </div>
-
-            </form>
+              <div className="flex justify-between">
+                <p>Total Invigilator</p>
+                <span>{infoModal.totals?.totalInvigilators ?? 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <p>Total Students</p>
+                <span>{infoModal.totals?.totalStudents ?? 0}</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
+      {/* Add / Edit Organization Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-60 p-4">
+          <div className="bg-white p-6 rounded-xl w-full max-w-lg relative">
+            <button
+              className="absolute right-4 top-4"
+              onClick={() => {
+                setModalOpen(false);
+                setEditOrg(null);
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <h3 className="text-2xl font-semibold text-[#4f6df5] mb-4">
+              {editOrg ? "Edit Organization" : "Add New Organization"}
+            </h3>
+
+            <form onSubmit={saveOrganization} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium">Organization Name</label>
+                <input
+                  name="organizationName"
+                  defaultValue={editOrg?.name || ""}
+                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Description</label>
+                <textarea
+                  name="description"
+                  defaultValue={editOrg?.description || ""}
+                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                />
+              </div>
+
+              {/* Contact person name (required for create) */}
+              {!editOrg && (
+                <div>
+                  <label className="block text-sm font-medium">Contact Person Name</label>
+                  <input
+                    name="contactFullName"
+                    placeholder="Full name"
+                    className="w-full border rounded-lg px-3 py-2 mt-1"
+                    value={orgUsers[0].fullName}
+                    onChange={(e) => updateUserField(0, "fullName", e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Email + Role rows */}
+              {!editOrg && (
+                <>
+                  <div className="grid grid-cols-1 gap-3">
+                    {orgUsers.map((u, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          placeholder="tech.univer@example.com"
+                          className="border rounded-lg px-3 py-2 flex-1"
+                          value={u.email}
+                          onChange={(e) => updateUserField(idx, "email", e.target.value)}
+                          required={idx === 0}
+                        />
+
+                        <select
+                          className="border rounded-lg px-3 py-2"
+                          value={u.role}
+                          onChange={(e) => updateUserField(idx, "role", e.target.value)}
+                        >
+                          <option>Admin</option>
+                          <option>Invigilator</option>
+                        </select>
+
+                        <button
+                          type="button"
+                          onClick={() => (idx === 0 ? (updateUserField(0, "email", "") ) : removeUserField(idx))}
+                          className="p-2"
+                          title={idx === 0 ? "Clear" : "Remove"}
+                        >
+                          {idx === 0 ? "🔄" : <Trash2 size={16} />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={addUserField}
+                      className="text-green-600 flex items-center gap-2"
+                    >
+                      <Plus size={14} /> Add more
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <div>
+                <button
+                  type="submit"
+                  className="w-full bg-blue-600 text-white py-3 rounded-lg"
+                >
+                  {editOrg ? "Save" : "Create"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
