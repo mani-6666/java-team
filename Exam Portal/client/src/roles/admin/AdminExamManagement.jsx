@@ -1,437 +1,366 @@
-
 import React, { useState } from "react";
-import AdminLayout from "../adminComponents/AdminLayout";
 import { Plus, Trash2 } from "lucide-react";
-import toast from "react-hot-toast";
-import axios from "axios";
+import AdminLayout from "../adminComponents/AdminLayout";
 
-const API = "http://localhost:5000/admin/questions";
+const QUESTIONS_API = "http://localhost:5000/admin/questions";
 
 export default function AdminExamManagement() {
-  const [examId, setExamId] = useState("");
-  const [mcqs, setMcqs] = useState([
-    {
-      id: Date.now(),
-      question: "",
-      choices: [
-        { id: 1, text: "", isCorrect: false },
-        { id: 2, text: "", isCorrect: false },
-      ],
-    },
+
+  /* ================= EXAM INFO ================= */
+  const [examInfo, setExamInfo] = useState({
+    title: "",
+    type: "Mixed",
+    duration: "",
+    totalQuestions: "",
+  });
+
+  const handleInfoChange = (field, value) => {
+    setExamInfo((prev) => ({ ...prev, [field]: value }));
+  };
+
+  /* ================= MCQ ================= */
+  const [mcq, setMcq] = useState([
+    { id: Date.now(), question: "", choices: ["", ""], type: "MCQ" },
   ]);
 
+  const addMcq = () => {
+    setMcq([
+      { id: Date.now(), question: "", choices: ["", ""], type: "MCQ" },
+      ...mcq,
+    ]);
+  };
+
+  const updateMcqQuestion = (id, value) => {
+    setMcq(mcq.map((m) => (m.id === id ? { ...m, question: value } : m)));
+  };
+
+  const updateChoice = (mcqId, index, value) => {
+    setMcq(
+      mcq.map((m) =>
+        m.id === mcqId
+          ? {
+              ...m,
+              choices: m.choices.map((c, i) => (i === index ? value : c)),
+            }
+          : m
+      )
+    );
+  };
+
+  const addChoice = (id) => {
+    setMcq(
+      mcq.map((m) =>
+        m.id === id ? { ...m, choices: [...m.choices, ""] } : m
+      )
+    );
+  };
+
+  const removeChoice = (id, index) => {
+    setMcq(
+      mcq.map((m) =>
+        m.id === id
+          ? { ...m, choices: m.choices.filter((_, i) => i !== index) }
+          : m
+      )
+    );
+  };
+
+  const deleteMcq = (id) => {
+    setMcq(mcq.filter((m) => m.id !== id));
+  };
+
+  /* ================= CODING ================= */
   const [codingQuestions, setCodingQuestions] = useState([
     { id: Date.now() + 1, question: "" },
   ]);
 
-  const [descriptiveQuestions, setDescriptiveQuestions] = useState([
-    { id: Date.now() + 2, question: "" },
-  ]);
-
-  const [savedData, setSavedData] = useState({
-    mcqs: [],
-    coding: [],
-    descriptive: [],
-  });
-
-
-  const addMcq = () => {
-    setMcqs((prev) => [
-      {
-        id: Date.now(),
-        question: "",
-        choices: [
-          { id: 1, text: "", isCorrect: false },
-          { id: 2, text: "", isCorrect: false },
-        ],
-      },
-      ...prev,
-    ]);
-    toast.success("New MCQ added");
-  };
-
-  const deleteMcq = (id) => {
-    setMcqs((prev) => prev.filter((q) => q.id !== id));
-    toast.error("MCQ deleted");
-  };
-
-  const updateMcqQuestion = (id, value) => {
-    setMcqs((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, question: value } : q))
-    );
-  };
-
-  const updateChoiceText = (mcqId, choiceIdx, value) => {
-    setMcqs((prev) =>
-      prev.map((mcq) => {
-        if (mcq.id !== mcqId) return mcq;
-        const choices = mcq.choices.map((c, idx) =>
-          idx === choiceIdx ? { ...c, text: value } : c
-        );
-        return { ...mcq, choices };
-      })
-    );
-  };
-
-  const addChoice = (mcqId) => {
-    setMcqs((prev) =>
-      prev.map((mcq) => {
-        if (mcq.id !== mcqId) return mcq;
-        const nextId = mcq.choices.length
-          ? Math.max(...mcq.choices.map((c) => c.id)) + 1
-          : 1;
-        return {
-          ...mcq,
-          choices: [...mcq.choices, { id: nextId, text: "", isCorrect: false }],
-        };
-      })
-    );
-    toast.success("Choice added");
-  };
-
-  const removeChoice = (mcqId, choiceIdx) => {
-    setMcqs((prev) =>
-      prev.map((mcq) => {
-        if (mcq.id !== mcqId) return mcq;
-        const choices = mcq.choices.filter((_, idx) => idx !== choiceIdx);
-        return { ...mcq, choices };
-      })
-    );
-    toast.success("Choice removed");
-  };
-
-  const markCorrect = (mcqId, choiceIdx) => {
-    setMcqs((prev) =>
-      prev.map((mcq) => {
-        if (mcq.id !== mcqId) return mcq;
-        const choices = mcq.choices.map((c, idx) => ({
-          ...c,
-          isCorrect: idx === choiceIdx,
-        }));
-        return { ...mcq, choices };
-      })
-    );
-  };
-
-  const saveMcqToBuffer = (id) => {
-    const mcq = mcqs.find((m) => m.id === id);
-    if (!mcq || !mcq.question.trim()) {
-      toast.error("Enter question text");
-      return;
-    }
-    if (!mcq.choices || mcq.choices.length < 2) {
-      toast.error("Add at least 2 choices");
-      return;
-    }
-    const hasCorrect = mcq.choices.some((c) => c.isCorrect);
-    if (!hasCorrect) {
-      toast.error("Mark one correct choice");
-      return;
-    }
-
-    setSavedData((prev) => ({ ...prev, mcqs: [mcq, ...prev.mcqs] }));
-    toast.success("MCQ saved");
-  };
-
-  // =================== CODING =====================
-  const addCodingQuestion = () => {
-    setCodingQuestions((prev) => [
+  const addCoding = () => {
+    setCodingQuestions([
       { id: Date.now(), question: "" },
-      ...prev,
+      ...codingQuestions,
     ]);
-    toast.success("Coding question added");
   };
 
-  const updateCodingQuestion = (id, value) => {
-    setCodingQuestions((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, question: value } : q))
+  const updateCoding = (id, value) => {
+    setCodingQuestions(
+      codingQuestions.map((c) =>
+        c.id === id ? { ...c, question: value } : c
+      )
     );
   };
 
   const deleteCoding = (id) => {
-    setCodingQuestions((prev) => prev.filter((q) => q.id !== id));
-    toast.error("Coding question deleted");
+    setCodingQuestions(codingQuestions.filter((c) => c.id !== id));
   };
 
-  const saveCoding = (id) => {
-    const q = codingQuestions.find((c) => c.id === id);
-    if (!q || !q.question.trim()) {
-      toast.error("Enter coding question");
-      return;
-    }
-    setSavedData((prev) => ({ ...prev, coding: [q, ...prev.coding] }));
-    toast.success("Coding saved");
-  };
+  /* ================= DESCRIPTIVE ================= */
+  const [descriptiveQuestions, setDescriptiveQuestions] = useState([
+    { id: Date.now() + 2, question: "" },
+  ]);
 
-  // ================= DESCRIPTIVE ====================
   const addDescriptive = () => {
-    setDescriptiveQuestions((prev) => [
+    setDescriptiveQuestions([
       { id: Date.now(), question: "" },
-      ...prev,
+      ...descriptiveQuestions,
     ]);
-    toast.success("Descriptive question added");
   };
 
   const updateDescriptive = (id, value) => {
-    setDescriptiveQuestions((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, question: value } : q))
+    setDescriptiveQuestions(
+      descriptiveQuestions.map((d) =>
+        d.id === id ? { ...d, question: value } : d
+      )
     );
   };
 
   const deleteDescriptive = (id) => {
-    setDescriptiveQuestions((prev) => prev.filter((q) => q.id !== id));
-    toast.error("Descriptive question deleted");
+    setDescriptiveQuestions(
+      descriptiveQuestions.filter((d) => d.id !== id)
+    );
   };
 
-  const saveDescriptive = (id) => {
-    const q = descriptiveQuestions.find((d) => d.id === id);
-    if (!q || !q.question.trim()) {
-      toast.error("Enter descriptive question");
-      return;
-    }
-    setSavedData((prev) => ({
-      ...prev,
-      descriptive: [q, ...prev.descriptive],
-    }));
-    toast.success("Descriptive saved");
-  };
+  /* ================= SUBMIT (API INTEGRATION) ================= */
+  const submitExamQuestions = async () => {
+    const examId = Number(new URLSearchParams(window.location.search).get("id"));
 
-  // ================= SUBMIT ALL =====================
-  const handleSubmit = async () => {
     if (!examId) {
-      toast.error("Enter Exam ID");
+      alert("Exam ID missing");
       return;
     }
 
-    const payload = [];
+    const questions = [];
 
-    savedData.mcqs.forEach((m) => {
-      payload.push({
-        type: "mcq",
+    mcq.forEach((m) => {
+      questions.push({
+        type: "MCQ",
         questionText: m.question,
+        marks: 1,
         choices: m.choices.map((c) => ({
-          text: c.text,
-          isCorrect: c.isCorrect,
+          text: c,
+          isCorrect: false,
         })),
       });
     });
 
-    savedData.coding.forEach((c) => {
-      payload.push({
-        type: "coding",
+    codingQuestions.forEach((c) => {
+      questions.push({
+        type: "Coding",
         questionText: c.question,
+        marks: 1,
       });
     });
 
-    savedData.descriptive.forEach((d) => {
-      payload.push({
-        type: "descriptive",
+    descriptiveQuestions.forEach((d) => {
+      questions.push({
+        type: "Descriptive",
         questionText: d.question,
+        marks: 1,
       });
     });
-
-    if (payload.length === 0) {
-      toast.error("No saved questions");
-      return;
-    }
 
     try {
-      const res = await axios.post(API, {
-        examId: Number(examId),
-        questions: payload,
+      const res = await fetch(QUESTIONS_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ examId, questions }),
       });
-      toast.success(`${res.data.count} questions submitted`);
-      setSavedData({ mcqs: [], coding: [], descriptive: [] });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Failed to save questions");
+        return;
+      }
+
+      alert("Questions saved successfully ✅");
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Upload failed");
+      console.error(err);
+      alert("Server error");
     }
   };
 
+  /* ================= UI ================= */
   return (
     <AdminLayout>
-      <div className="space-y-6 p-4 min-h-screen bg-white text-black dark:bg-gray-900 dark:text-white">
+      <div className="p-6 space-y-10 dark:text-white">
 
-        <div className="flex items-center gap-2 mb-4">
-          <button
-            onClick={handleSubmit}
-            className="px-4 py-2 bg-[#4f6df5] text-white rounded-md"
-          >
-            Submit All Saved
-          </button>
-        </div>
+        <h1 className="text-3xl font-semibold">Exam Management</h1>
+        <p className="text-gray-600 dark:text-gray-300 -mt-2">
+          Manage exam questions
+        </p>
 
-        {/* ================= MCQs ================= */}
-        <section className="space-y-4">
-          <div className="flex justify-between">
-            <h2 className="text-lg font-semibold">MCQ Questions</h2>
-            <button
-              onClick={addMcq}
-              className="px-3 py-2 bg-[#4f6df5] text-white rounded-md flex items-center gap-2"
-            >
-              <Plus size={16} /> Add MCQ
-            </button>
+        {/* ================= EXAM INFO ================= */}
+        <div className="bg-white dark:bg-[#0f0f0f] p-6 rounded-xl shadow space-y-5">
+          <div>
+            <label className="font-medium">Exam Title</label>
+            <input
+              className="w-full p-3 border rounded-lg mt-1 dark:bg-[#1a1a1a] dark:border-gray-700 dark:text-white"
+              value={examInfo.title}
+              onChange={(e) => handleInfoChange("title", e.target.value)}
+            />
           </div>
 
-          {mcqs.map((mcq) => (
+          <div>
+            <label className="font-medium">Exam Type</label>
+            <select
+              className="w-full p-3 border rounded-lg mt-1 dark:bg-[#1a1a1a] dark:border-gray-700 dark:text-white"
+              value={examInfo.type}
+              onChange={(e) => handleInfoChange("type", e.target.value)}
+            >
+              <option>Mixed</option>
+              <option>MCQ</option>
+              <option>Coding</option>
+              <option>Descriptive</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="font-medium">Duration (min)</label>
+            <input
+              className="w-full p-3 border rounded-lg mt-1 dark:bg-[#1a1a1a] dark:border-gray-700 dark:text-white"
+              value={examInfo.duration}
+              onChange={(e) =>
+                handleInfoChange("duration", e.target.value)
+              }
+            />
+          </div>
+
+          <div>
+            <label className="font-medium">Number of Questions</label>
+            <input
+              className="w-full p-3 border rounded-lg mt-1 dark:bg-[#1a1a1a] dark:border-gray-700 dark:text-white"
+              value={examInfo.totalQuestions}
+              onChange={(e) =>
+                handleInfoChange("totalQuestions", e.target.value)
+              }
+            />
+          </div>
+        </div>
+
+        {/* ================= MCQ ================= */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-semibold">MCQ Questions</h2>
+
+          <button
+            onClick={addMcq}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2"
+          >
+            <Plus size={18} /> Add MCQ
+          </button>
+
+          {mcq.map((m) => (
             <div
-              key={mcq.id}
-              className="bg-white dark:bg-gray-800 text-black dark:text-white p-4 rounded-lg border border-gray-300 dark:border-gray-700 space-y-3"
+              key={m.id}
+              className="bg-white dark:bg-[#0f0f0f] p-6 rounded-xl shadow border dark:border-gray-700 space-y-5"
             >
               <div className="flex justify-end">
                 <button
-                  onClick={() => deleteMcq(mcq.id)}
-                  className="text-red-600 dark:text-red-400 p-2"
+                  onClick={() => deleteMcq(m.id)}
+                  className="text-red-600 hover:bg-red-100 dark:hover:bg-red-900 p-2 rounded-lg"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={18} />
                 </button>
               </div>
 
               <textarea
-                value={mcq.question}
+                value={m.question}
                 onChange={(e) =>
-                  updateMcqQuestion(mcq.id, e.target.value)
+                  updateMcqQuestion(m.id, e.target.value)
                 }
-                placeholder="Enter MCQ Question..."
-                className="w-full bg-white dark:bg-gray-700 text-black dark:text-white border border-gray-300 dark:border-gray-600 rounded-md p-2"
-                rows={3}
+                className="w-full border h-24 rounded-lg p-3 dark:bg-[#1a1a1a] dark:border-gray-700 dark:text-white"
               />
 
-              <p className="font-medium">Choices</p>
-              {mcq.choices.map((choice, idx) => (
-                <div key={choice.id} className="flex items-center gap-2">
+              {m.choices.map((c, i) => (
+                <div key={i} className="flex gap-3 mb-2">
+                  <input disabled type="radio" />
                   <input
-                    type="radio"
-                    checked={choice.isCorrect}
-                    onChange={() => markCorrect(mcq.id, idx)}
-                  />
-                  <input
-                    value={choice.text}
+                    className="flex-1 border p-2 rounded-lg dark:bg-[#1a1a1a] dark:border-gray-700 dark:text-white"
+                    value={c}
                     onChange={(e) =>
-                      updateChoiceText(mcq.id, idx, e.target.value)
+                      updateChoice(m.id, i, e.target.value)
                     }
-                    className="flex-1 bg-white dark:bg-gray-700 text-black dark:text-white border border-gray-300 dark:border-gray-600 rounded-md p-2"
-                    placeholder="Choice"
                   />
                   <button
-                    onClick={() => removeChoice(mcq.id, idx)}
-                    className="text-red-600 dark:text-red-400 p-2"
+                    onClick={() => removeChoice(m.id, i)}
+                    className="text-red-600"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               ))}
 
-              <button className="text-blue-600 dark:text-blue-400 text-sm" onClick={() => addChoice(mcq.id)}>
+              <button
+                onClick={() => addChoice(m.id)}
+                className="text-blue-600 text-sm"
+              >
                 + Add Option
               </button>
-
-              <div className="flex justify-end">
-                <button
-                  onClick={() => saveMcqToBuffer(mcq.id)}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md"
-                >
-                  Save
-                </button>
-              </div>
             </div>
           ))}
-        </section>
+        </div>
 
         {/* ================= CODING ================= */}
-        <section className="space-y-4">
-          <div className="flex justify-between">
-            <h2 className="text-lg font-semibold">Coding Questions</h2>
-            <button
-              onClick={addCodingQuestion}
-              className="px-3 py-2 bg-[#4f6df5] text-white rounded-md flex items-center gap-2"
-            >
-              <Plus size={16} /> Add Coding
-            </button>
-          </div>
+        <div className="space-y-4">
+          <h2 className="text-2xl font-semibold">Coding Questions</h2>
 
-          {codingQuestions.map((cq) => (
+          <button
+            onClick={addCoding}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2"
+          >
+            <Plus size={18} /> Add Coding Question
+          </button>
+
+          {codingQuestions.map((c) => (
             <div
-              key={cq.id}
-              className="bg-white dark:bg-gray-800 text-black dark:text-white p-4 rounded-lg border border-gray-300 dark:border-gray-700 space-y-3"
+              key={c.id}
+              className="bg-white dark:bg-[#0f0f0f] p-6 rounded-xl shadow border dark:border-gray-700"
             >
-              <div className="flex justify-end">
-                <button
-                  onClick={() => deleteCoding(cq.id)}
-                  className="text-red-600 dark:text-red-400 p-2"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-
               <textarea
-                value={cq.question}
-                onChange={(e) =>
-                  updateCodingQuestion(cq.id, e.target.value)
-                }
-                placeholder="Enter coding question..."
-                className="w-full bg-white dark:bg-gray-700 text-black dark:text-white border border-gray-300 dark:border-gray-600 rounded-md p-2"
-                rows={3}
+                value={c.question}
+                onChange={(e) => updateCoding(c.id, e.target.value)}
+                className="w-full border h-24 rounded-lg p-3 dark:bg-[#1a1a1a] dark:border-gray-700 dark:text-white"
               />
-
-              <div className="flex justify-end">
-                <button
-                  onClick={() => saveCoding(cq.id)}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md"
-                >
-                  Save
-                </button>
-              </div>
             </div>
           ))}
-        </section>
+        </div>
 
         {/* ================= DESCRIPTIVE ================= */}
-        <section className="space-y-4">
-          <div className="flex justify-between">
-            <h2 className="text-lg font-semibold">Descriptive Questions</h2>
-            <button
-              onClick={addDescriptive}
-              className="px-3 py-2 bg-[#4f6df5] text-white rounded-md flex items-center gap-2"
-            >
-              <Plus size={16} /> Add Descriptive
-            </button>
-          </div>
+        <div className="space-y-4">
+          <h2 className="text-2xl font-semibold">Descriptive Questions</h2>
 
-          {descriptiveQuestions.map((dq) => (
+          <button
+            onClick={addDescriptive}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2"
+          >
+            <Plus size={18} /> Add Descriptive Question
+          </button>
+
+          {descriptiveQuestions.map((d) => (
             <div
-              key={dq.id}
-              className="bg-white dark:bg-gray-800 text-black dark:text-white p-4 rounded-lg border border-gray-300 dark:border-gray-700 space-y-3"
+              key={d.id}
+              className="bg-white dark:bg-[#0f0f0f] p-6 rounded-xl shadow border dark:border-gray-700"
             >
-              <div className="flex justify-end">
-                <button
-                  onClick={() => deleteDescriptive(dq.id)}
-                  className="text-red-600 dark:text-red-400 p-2"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-
               <textarea
-                value={dq.question}
+                value={d.question}
                 onChange={(e) =>
-                  updateDescriptive(dq.id, e.target.value)
+                  updateDescriptive(d.id, e.target.value)
                 }
-                placeholder="Enter descriptive question..."
-                className="w-full bg-white dark:bg-gray-700 text-black dark:text-white border border-gray-300 dark:border-gray-600 rounded-md p-2"
-                rows={4}
+                className="w-full border h-28 rounded-lg p-3 dark:bg-[#1a1a1a] dark:border-gray-700 dark:text-white"
               />
-
-              <div className="flex justify-end">
-                <button
-                  onClick={() => saveDescriptive(dq.id)}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md"
-                >
-                  Save
-                </button>
-              </div>
             </div>
           ))}
-        </section>
+        </div>
+
+        {/* ================= SUBMIT ================= */}
+        <div className="flex justify-center pt-10">
+          <button
+            onClick={submitExamQuestions}
+            className="px-8 py-3 bg-blue-600 text-white rounded-xl shadow-lg"
+          >
+            Submit
+          </button>
+        </div>
       </div>
     </AdminLayout>
   );

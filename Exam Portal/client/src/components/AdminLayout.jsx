@@ -381,6 +381,9 @@ export default function AdminLayout({ children }) {
 
         <main className="p-4 sm:p-6">{children}</main>
       </div>
+
+
+      
       {profileOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[999] p-4 animate-fadeIn">
           <div

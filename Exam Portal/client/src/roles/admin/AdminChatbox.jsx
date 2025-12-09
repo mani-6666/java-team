@@ -296,7 +296,7 @@ const [chats, setChats] = useState([
           </div>
         </div>
 
-        {/* CHAT WINDOW */}
+    
         <div className="lg:col-span-2 bg-white dark:bg-[#0f0f0f] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col">
           <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-800">
             <div>
@@ -336,7 +336,6 @@ const [chats, setChats] = useState([
             </div>
           </div>
 
-          {/* MESSAGES */}
           <div
             className="flex-1 overflow-y-auto p-6 space-y-6 custom-scroll max-h-[60vh]"
             style={{ scrollBehavior: "smooth" }}
@@ -394,7 +393,6 @@ const [chats, setChats] = useState([
             <div ref={messagesEndRef} />
           </div>
 
-          {/* INPUT AREA */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0e0e0e]">
             <div className="flex items-center gap-3 bg-white dark:bg-gray-900 rounded-xl p-3 shadow border border-gray-300 dark:border-gray-700">
 
