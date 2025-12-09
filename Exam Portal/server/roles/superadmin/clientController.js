@@ -1,183 +1,357 @@
 const express = require("express");
+const bcrypt = require("bcryptjs");
 const db = require("../config/database");
+const transporter = require("../config/mail");
+
 const router = express.Router();
-//create client
+
+function generateRandomPassword(length = 10) {
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$!";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+async function sendLoginEmail(to, fullName, role, orgName, password) {
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to,
+      subject: `Your ${role} Login for ${orgName}`,
+      html: `
+        <h2>Welcome, ${fullName}</h2>
+        <p>Your <b>${role}</b> account for <b>${orgName}</b> has been created.</p>
+
+        <p><b>Login Email:</b> ${to}</p>
+        <p><b>Temporary Password:</b> ${password}</p>
+
+        <p>Please login and change your password immediately.</p>
+        <br/>
+        <p>Regards,<br/>ExamMarkPro Team</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log("📩 Login Email Sent To:", to);
+  } catch (err) {
+    console.error("❌ EMAIL SEND ERROR:", err.message);
+  }
+}
 router.post("/", async (req, res) => {
   try {
-    const {
-      organizationName,
-      organizationId,
-      subscription,
-      contactPerson,
-      email,
-      status
-    } = req.body;
+    const { organizationName, description, email, role, fullName } = req.body;
 
-    if (!organizationName || !organizationId || !subscription || !email) {
+    if (!organizationName || !email || !role || !fullName) {
       return res.status(400).json({
         success: false,
-        message: "Required fields missing"
+        message:
+          "Organization Name, Email, Role, and Contact Person Name are required",
       });
     }
-    //email check
-    const emailCheck = await db.query(
-      `SELECT id FROM clients WHERE email = $1`,
+
+    // Email already exists?
+    const checkEmail = await db.query(
+      `SELECT asi_id FROM mainexamportal.asi_users WHERE email=$1`,
       [email]
     );
 
-    if (emailCheck.rows.length > 0) {
+    if (checkEmail.rows.length > 0) {
       return res.status(409).json({
         success: false,
-        message: "Email already exists"
+        message: "Email already exists",
       });
     }
 
-    const insertQuery = `
-      INSERT INTO clients 
-      (organizationName, organizationId, subscription, contactPerson, email, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `;
+    // Generate ORG ID
+    const newOrgIdResult = await db.query(
+      `SELECT mainexamportal.generate_org_id() AS org_id`
+    );
+    const newOrgId = newOrgIdResult.rows[0].org_id;
 
-    const result = await db.query(insertQuery, [
-      organizationName,
-      organizationId,
-      subscription,
-      contactPerson,
-      email,
-      status || "Active"
-    ]);
+    // Insert organization
+    const org = await db.query(
+      `INSERT INTO mainexamportal.organizations 
+        (org_id, name, description, status)
+       VALUES ($1, $2, $3, 'active')
+       RETURNING *`,
+      [newOrgId, organizationName, description]
+    );
+
+    // Generate password
+    const tempPassword = generateRandomPassword();
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    // Insert admin user
+    const user = await db.query(
+      `INSERT INTO mainexamportal.asi_users 
+        (email, password_hash, role, status, org_id, full_name)
+       VALUES ($1, $2, $3, 'active', $4, $5)
+       RETURNING *`,
+      [email, passwordHash, role.toLowerCase(), newOrgId, fullName]
+    );
+
+    //  SEND LOGIN EMAIL
+    sendLoginEmail(email, fullName, role, organizationName, tempPassword);
+
+    return res.status(201).json({
+      success: true,
+      message: "Organization and admin created successfully",
+      organization: {
+        ...org.rows[0],
+        contact_person: fullName,
+        contact_email: email,
+        subscription: null,
+      },
+      contactUser: user.rows[0],
+      loginPassword: tempPassword,
+    });
+  } catch (err) {
+    console.error("CREATE ORG ERROR:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+router.get("/", async (req, res) => {
+  try {
+    const orgs = await db.query(`
+      SELECT 
+        o.*,
+
+        -- Contact Person Name
+        (
+          SELECT full_name
+          FROM mainexamportal.asi_users au
+          WHERE au.org_id = o.org_id
+            AND LOWER(au.role) = 'admin'
+          ORDER BY au.created_at ASC
+          LIMIT 1
+        ) AS contact_person,
+
+        -- Contact Person Email
+        (
+          SELECT email
+          FROM mainexamportal.asi_users au
+          WHERE au.org_id = o.org_id
+            AND LOWER(au.role) = 'admin'
+          ORDER BY au.created_at ASC
+          LIMIT 1
+        ) AS contact_email,
+
+        -- Subscription Plan Name
+        (
+          SELECT sp.plan_name
+          FROM mainexamportal.organization_subscription os
+          JOIN mainexamportal.subscription_plans sp 
+            ON sp.plan_id = os.plan_id
+          WHERE os.org_id = o.org_id
+            AND os.is_active = TRUE
+            AND os.is_deleted = FALSE
+          LIMIT 1
+        ) AS subscription
+
+      FROM mainexamportal.organizations o
+      ORDER BY o.created_at DESC
+    `);
+
+    res.json({ success: true, data: orgs.rows });
+  } catch (err) {
+    console.error("GET ORGS ERROR:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get("/:orgId/info", async (req, res) => {
+  try {
+    const orgId = req.params.orgId;
+
+    const org = await db.query(
+      `SELECT * FROM mainexamportal.organizations WHERE org_id=$1`,
+      [orgId]
+    );
+
+    if (org.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Organization not found" });
+    }
+
+    const totals = {
+      totalExams: Number(
+        (
+          await db.query(
+            `SELECT COUNT(*) FROM mainexamportal.exams 
+             WHERE organization_id=$1 AND is_deleted=false`,
+            [orgId]
+          )
+        ).rows[0].count
+      ),
+      totalAdmins: Number(
+        (
+          await db.query(
+            `SELECT COUNT(*) FROM mainexamportal.asi_users 
+             WHERE org_id=$1 AND role='admin'`,
+            [orgId]
+          )
+        ).rows[0].count
+      ),
+      totalInvigilators: Number(
+        (
+          await db.query(
+            `SELECT COUNT(*) FROM mainexamportal.asi_users 
+             WHERE org_id=$1 AND role='invigilator'`,
+            [orgId]
+          )
+        ).rows[0].count
+      ),
+      totalStudents: Number(
+        (
+          await db.query(
+            `SELECT COUNT(*) FROM mainexamportal.users WHERE org_id=$1`,
+            [orgId]
+          )
+        ).rows[0].count
+      ),
+    };
+
+    res.json({ success: true, data: { ...org.rows[0], totals } });
+  } catch (err) {
+    console.error("ORG INFO ERROR:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post("/:orgId/users", async (req, res) => {
+  try {
+    const { email, role, fullName } = req.body;
+    const orgId = req.params.orgId;
+
+    if (!fullName) {
+      return res.status(400).json({
+        success: false,
+        message: "Full Name is required",
+      });
+    }
+
+    const exists = await db.query(
+      `SELECT 1 FROM mainexamportal.asi_users WHERE email=$1`,
+      [email]
+    );
+
+    if (exists.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already exists",
+      });
+    }
+
+    const tempPassword = generateRandomPassword();
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    const user = await db.query(
+      `INSERT INTO mainexamportal.asi_users 
+        (email, password_hash, role, status, org_id, full_name)
+       VALUES ($1, $2, $3, 'active', $4, $5)
+       RETURNING *`,
+      [email, passwordHash, role.toLowerCase(), orgId, fullName]
+    );
+
+    // EMAIL FOR INVIGILATOR/ADMIN
+    sendLoginEmail(email, fullName, role, orgId, tempPassword);
 
     res.status(201).json({
       success: true,
-      data: result.rows[0]
+      user: user.rows[0],
+      loginPassword: tempPassword,
     });
-
   } catch (err) {
+    console.error("ADD USER ERROR:", err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
-// GET ALL CLIENTS
-router.get("/", async (req, res) => {
+
+router.delete("/users/:userId", async (req, res) => {
   try {
-    const { search = "", status = "", page = 1, limit = 10 } = req.query;
-    const offset = (page - 1) * limit;
-
-    const conditions = [];
-    const values = [];
-    let index = 1;
-
-    if (search) {
-      conditions.push(
-        `(organizationName ILIKE $${index} OR organizationId ILIKE $${index} OR email ILIKE $${index})`
-      );
-      values.push(`%${search}%`);
-      index++;
-    }
-
-    if (status) {
-      conditions.push(`status = $${index}`);
-      values.push(status);
-      index++;
-    }
-
-    const whereClause = conditions.length
-      ? `WHERE ${conditions.join(" AND ")}`
-      : "";
-
-    const dataQuery = `
-      SELECT id, organizationName, organizationId, subscription, contactPerson, email, status, createdAt
-      FROM clients
-      ${whereClause}
-      ORDER BY createdAt DESC
-      LIMIT $${index} OFFSET $${index + 1}
-    `;
-    values.push(limit, offset);
-
-    const result = await db.query(dataQuery, values);
-
-    const countQuery = `SELECT COUNT(*) FROM clients ${whereClause}`;
-    const countResult = await db.query(countQuery, values.slice(0, values.length - 2));
-
-    res.json({
-      success: true,
-      total: Number(countResult.rows[0].count),
-      page: Number(page),
-      limit: Number(limit),
-      data: result.rows
-    });
-
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-// GET SINGLE CLIENT
-router.get("/:id", async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT * FROM clients WHERE id = $1`,
-      [req.params.id]
+    await db.query(
+      `DELETE FROM mainexamportal.asi_users WHERE asi_id=$1`,
+      [req.params.userId]
     );
 
-    res.json({
-      success: true,
-      data: result.rows[0]
-    });
-
+    res.json({ success: true, message: "User deleted" });
   } catch (err) {
+    console.error("DELETE USER ERROR:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
-// UPDATE CLIENT
-router.put("/:id", async (req, res) => {
+
+router.put("/users/:userId/role", async (req, res) => {
   try {
-    const {
-      organizationName,
-      organizationId,
-      subscription,
-      contactPerson,
-      email,
-      status
-    } = req.body;
+    const { role } = req.body;
 
-    const updateQuery = `
-      UPDATE clients 
-      SET organizationName=$1, organizationId=$2, subscription=$3,
-          contactPerson=$4, email=$5, status=$6
-      WHERE id=$7
-      RETURNING *
-    `;
+    const user = await db.query(
+      `UPDATE mainexamportal.asi_users 
+       SET role=$1 
+       WHERE asi_id=$2
+       RETURNING *`,
+      [role.toLowerCase(), req.params.userId]
+    );
 
-    const result = await db.query(updateQuery, [
-      organizationName,
-      organizationId,
-      subscription,
-      contactPerson,
-      email,
-      status,
-      req.params.id
-    ]);
-
-    res.json({
-      success: true,
-      data: result.rows[0]
-    });
-
+    res.json({ success: true, user: user.rows[0] });
   } catch (err) {
+    console.error("UPDATE ROLE ERROR:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
-// DELETE CLIENT
-router.delete("/:id", async (req, res) => {
+router.put("/users/:userId/status", async (req, res) => {
   try {
-    await db.query(`DELETE FROM clients WHERE id = $1`, [req.params.id]);
+    const { status } = req.body;
 
-    res.json({
-      success: true,
-      message: "Client deleted successfully"
-    });
+    const user = await db.query(
+      `UPDATE mainexamportal.asi_users 
+       SET status=$1 
+       WHERE asi_id=$2
+       RETURNING *`,
+      [status.toLowerCase(), req.params.userId]
+    );
 
+    res.json({ success: true, user: user.rows[0] });
   } catch (err) {
+    console.error("UPDATE STATUS ERROR:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+router.put("/:orgId", async (req, res) => {
+  try {
+    const { organizationName, description, status } = req.body;
+
+    const result = await db.query(
+      `UPDATE mainexamportal.organizations
+       SET name=$1, description=$2, status=$3
+       WHERE org_id=$4
+       RETURNING *`,
+      [organizationName, description, status, req.params.orgId]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error("UPDATE ORG ERROR:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+router.delete("/:orgId", async (req, res) => {
+  try {
+    await db.query(
+      `DELETE FROM mainexamportal.organizations WHERE org_id=$1`,
+      [req.params.orgId]
+    );
+
+    res.json({ success: true, message: "Organization deleted" });
+  } catch (err) {
+    console.error("DELETE ORG ERROR:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
