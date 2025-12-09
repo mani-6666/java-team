@@ -1,10 +1,8 @@
 const express = require("express");
 const router = express.Router();
-
 const bcrypt = require("bcryptjs");
-const pool = require("../dbconfig/db");
+const pool = require("../config/database");
 const issueToken = require("../authentication/issueToken");
-
 router.post("/register", async (req, res) => {
   try {
     const { fullName, email, password, organizationId, mobile, gender } = req.body;
@@ -12,25 +10,24 @@ router.post("/register", async (req, res) => {
     if (!fullName || !email || !password || !organizationId) {
       return res.status(400).json({ message: "All fields are required" });
     }
-
     const hashed = await bcrypt.hash(password, 10);
     const now = new Date();
 
     const userResult = await pool.query(
       `
-      INSERT INTO users (email, password_hash, org_id, role)
-      VALUES ($1, $2, $3, 'user')
-      RETURNING user_id, email, org_id, role
+      INSERT INTO mainexamportal.users (email, password_hash, org_id)
+      VALUES ($1, $2, $3)
+      RETURNING user_id, email, org_id
       `,
       [email, hashed, organizationId]
     );
 
     const user = userResult.rows[0];
 
-    
+    // 2) Insert into user_details table
     await pool.query(
       `
-      INSERT INTO user_details (user_id, name, mobile, gender, created_at)
+      INSERT INTO mainexamportal.user_details (user_id, name, mobile, gender, created_at)
       VALUES ($1, $2, $3, $4, $5)
       `,
       [user.user_id, fullName, mobile || null, gender || null, now]
@@ -62,12 +59,16 @@ router.post("/login", async (req, res) => {
   
     if (loginType === "asi") {
       const asiResult = await pool.query(
-        `SELECT * FROM asi_users WHERE email = $1`,
+        `SELECT * FROM mainexamportal.asi_users WHERE email = $1`,
         [email]
       );
 
       if (asiResult.rows.length > 0) {
         const asi = asiResult.rows[0];
+
+        if (asi.status !== "active") {
+          return res.status(403).json({ message: "Account inactive" });
+        }
 
         const match = await bcrypt.compare(password, asi.password_hash);
         if (!match) {
@@ -93,10 +94,8 @@ router.post("/login", async (req, res) => {
         });
       }
     }
-
-
     const userResult = await pool.query(
-      `SELECT * FROM users WHERE email = $1`,
+      `SELECT * FROM mainexamportal.users WHERE email = $1`,
       [email]
     );
 
@@ -118,10 +117,9 @@ router.post("/login", async (req, res) => {
     });
 
     const details = await pool.query(
-      `SELECT name, mobile, gender FROM user_details WHERE user_id = $1`,
+      `SELECT name, mobile, gender FROM mainexamportal.user_details WHERE user_id = $1`,
       [user.user_id]
     );
-
     const profile = details.rows[0] || {};
 
     return res.json({

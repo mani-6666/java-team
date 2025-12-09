@@ -4,7 +4,7 @@ const issueToken = (res, user) => {
   const payload = {
     id: user.id,
     role: user.role,
-    organizationId: user.organizationId
+    organizationId: user.org_id
   };
 
   const token = jwt.sign(payload, process.env.JWT_SECRET, {

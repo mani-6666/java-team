@@ -1,8 +1,8 @@
-
-import express from "express";
-import db from "../config/db.js";
+const express = require("express");
+const db = require("../config/db.js");
 
 const router = express.Router();
+
 
 function getContext(req) {
   return {
@@ -23,8 +23,10 @@ function computeStatus(exam) {
   if (start && now < start) return "Not Started";
   if (start && end && now >= start && now <= end) return "Ongoing";
   if (end && now > end) return "Expired";
+
   return "Not Started";
 }
+
 
 function formatDateISO(dateStr) {
   if (!dateStr) return null;
@@ -35,11 +37,19 @@ router.get("/my-exams", async (req, res) => {
   try {
     const { userId, userRole, orgId, query } = getContext(req);
 
+ 
     if (!userId) {
-      return res.status(400).json({ success: false, message: "user-id header required" });
+      return res.status(400).json({
+        success: false,
+        message: "user-id header required",
+      });
     }
+
     if (userRole !== "USER") {
-      return res.status(403).json({ success: false, message: "Access denied (USER only)" });
+      return res.status(403).json({
+        success: false,
+        message: "Access denied — USER only",
+      });
     }
 
    
@@ -47,10 +57,10 @@ router.get("/my-exams", async (req, res) => {
     const limit = Math.min(100, Number(query.limit || 20));
     const offset = (page - 1) * limit;
 
+    
     const search = query.search ? `%${query.search}%` : null;
-    const type = query.type ? String(query.type) : null;
+    const type = query.type ? String(query.type).toLowerCase() : null;
     const statusFilter = query.status ? String(query.status).toLowerCase() : null;
-
 
     let params = [userId];
     let where = "WHERE ue.user_id = $1";
@@ -59,10 +69,12 @@ router.get("/my-exams", async (req, res) => {
       params.push(orgId);
       where += ` AND e.organization_id = $${params.length}`;
     }
+
     if (type) {
-      params.push(type.toLowerCase());
+      params.push(type);
       where += ` AND LOWER(e.exam_type) = $${params.length}`;
     }
+
     if (search) {
       params.push(search);
       where += ` AND LOWER(e.name) LIKE LOWER($${params.length})`;
@@ -73,7 +85,8 @@ router.get("/my-exams", async (req, res) => {
     const limitIndex = params.length - 1;
     const offsetIndex = params.length;
 
-    const querySql = `
+
+    const sql = `
       SELECT
         e.id AS exam_id,
         e.name,
@@ -93,79 +106,95 @@ router.get("/my-exams", async (req, res) => {
       LIMIT $${limitIndex} OFFSET $${offsetIndex}
     `;
 
-    const rows = await db.query(querySql, params);
+    const rows = await db.query(sql, params);
 
-    let totalParams = [userId];
-    let totalWhere = "WHERE ue.user_id = $1";
+    
+    let countParams = [userId];
+    let countWhere = "WHERE ue.user_id = $1";
+
     if (orgId) {
-      totalParams.push(orgId);
-      totalWhere += ` AND e.organization_id = $${totalParams.length}`;
+      countParams.push(orgId);
+      countWhere += ` AND e.organization_id = $${countParams.length}`;
     }
     if (type) {
-      totalParams.push(type.toLowerCase());
-      totalWhere += ` AND LOWER(e.exam_type) = $${totalParams.length}`;
+      countParams.push(type);
+      countWhere += ` AND LOWER(e.exam_type) = $${countParams.length}`;
     }
     if (search) {
-      totalParams.push(search);
-      totalWhere += ` AND LOWER(e.name) LIKE LOWER($${totalParams.length})`;
+      countParams.push(search);
+      countWhere += ` AND LOWER(e.name) LIKE LOWER($${countParams.length})`;
     }
 
-    const totalQuery = `
+    const countSql = `
       SELECT COUNT(*)::int AS total
       FROM user_exams ue
       JOIN exams e ON e.id = ue.exam_id
-      ${totalWhere}
+      ${countWhere}
     `;
-    const totalRes = await db.query(totalQuery, totalParams);
-    const total = Number(totalRes[0]?.total || 0);
+
+    const countRes = await db.query(countSql, countParams);
+    const total = Number(countRes[0]?.total || 0);
 
    
-    let exams = rows.map(r => {
-      const status = computeStatus(r);
+    let exams = rows.map((exam) => {
+      const status = computeStatus(exam);
 
-      let isActive = false;
-      if (r.start_time && r.end_time) {
-        const now = new Date();
-        isActive = now >= new Date(r.start_time) && now <= new Date(r.end_time);
-      }
-
-      const scorePercent = (r.score !== null && r.score !== undefined) ? Number(r.score) : null;
+      const isActive =
+        exam.start_time &&
+        exam.end_time &&
+        new Date() >= new Date(exam.start_time) &&
+        new Date() <= new Date(exam.end_time);
 
       return {
-        exam_id: r.exam_id,
-        name: r.name,
-        exam_type: r.exam_type,      
-        difficulty: r.difficulty,     
-        duration: r.duration,         
-        total_questions: r.total_questions,
-        deadline: formatDateISO(r.end_time),
-        start_time: r.start_time,
-        end_time: r.end_time,
-        attempt_status: r.attempt_status,
-        attempted_at: r.attempted_at,
-        score: r.score,
-        percentage: scorePercent,    
+        exam_id: exam.exam_id,
+        name: exam.name,
+        exam_type: exam.exam_type,
+        difficulty: exam.difficulty,
+        duration: exam.duration,
+        total_questions: exam.total_questions,
+        start_time: exam.start_time,
+        end_time: exam.end_time,
+        deadline: formatDateISO(exam.end_time),
+        attempt_status: exam.attempt_status,
+        attempted_at: exam.attempted_at,
+        score: exam.score,
+        percentage: exam.score !== null ? Number(exam.score) : null,
+        status,
         ui_badge: isActive ? "Active" : "Inactive",
-        status,                       
       };
     });
 
+    /* ---------------------------
+       Apply Status Filter (optional)
+    --------------------------- */
     if (statusFilter) {
-      exams = exams.filter(e => e.status.toLowerCase() === statusFilter);
+      exams = exams.filter(
+        (e) => e.status.toLowerCase() === statusFilter
+      );
     }
 
+    /* -----------------------------------------------------
+       Send Final Output
+    ----------------------------------------------------- */
     return res.json({
       success: true,
       data: {
         exams,
-        meta: { total, page, limit }
-      }
+        meta: {
+          total,
+          page,
+          limit,
+        },
+      },
     });
-
-  } catch (err) {
-    console.error("Error /my-exams:", err);
-    return res.status(500).json({ success: false, message: "Failed to load assigned exams", error: err.message });
+  } catch (error) {
+    console.error("Error in /my-exams:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load assigned exams",
+      error: error.message,
+    });
   }
 });
 
-export default router;
+module.exports = router;
