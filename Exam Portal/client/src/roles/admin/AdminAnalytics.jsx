@@ -41,12 +41,12 @@ export default function AdminAnalytics() {
     fetchExamStats();
     fetchUserStats();
     fetchActivity(filter);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   useEffect(() => {
     fetchActivity(filter);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [filter]);
 
   async function fetchUserEngagement() {
@@ -101,7 +101,7 @@ export default function AdminAnalytics() {
       if (json.success && json.activity) {
         setActivityData(json.activity);
       } else {
-        // fallback empty
+       
         setActivityData([]);
       }
     } catch (err) {

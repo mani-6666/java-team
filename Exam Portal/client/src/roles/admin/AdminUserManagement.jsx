@@ -38,16 +38,13 @@ export default function AdminUserManagement() {
     return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-white";
   };
 
-
   const fetchUsers = async () => {
     try {
       const q = new URLSearchParams();
       if (search) q.set("search", search);
       if (filterRole && filterRole !== "All") q.set("role", filterRole);
 
-      const res = await fetch(`http://localhost:5000/admin?${q.toString()}`, {
-        credentials: "include",
-      });
+      const res = await fetch(`http://localhost:5000/admin?${q.toString()}`);
       const json = await res.json();
       if (json.success) setUsers(json.users || []);
       else {
@@ -59,7 +56,6 @@ export default function AdminUserManagement() {
       setUsers([]);
     }
   };
-
 
   const handleAddUser = async () => {
     if (!newUser.name || !newUser.email || !newUser.phone) {
@@ -79,7 +75,6 @@ export default function AdminUserManagement() {
       const res = await fetch("http://localhost:5000/admin/users/invigilators", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(body),
       });
 
@@ -113,7 +108,6 @@ export default function AdminUserManagement() {
       score: "0%",
     });
 
-
   const openDeleteModal = (user) => {
     setUserToDelete(user);
     setShowDeleteModal(true);
@@ -124,7 +118,6 @@ export default function AdminUserManagement() {
     try {
       const res = await fetch(`http://localhost:5000/admin/${userToDelete.id}`, {
         method: "DELETE",
-        credentials: "include",
       });
       const json = await res.json();
       if (!res.ok) {
@@ -141,12 +134,9 @@ export default function AdminUserManagement() {
     }
   };
 
-
   const openViewModal = async (id) => {
     try {
-      const res = await fetch(`http://localhost:5000/admin/${id}`, {
-        credentials: "include",
-      });
+      const res = await fetch(`http://localhost:5000/admin/${id}`);
       const json = await res.json();
       if (!res.ok) {
         alert(json.message || "Failed to fetch user");
@@ -159,7 +149,6 @@ export default function AdminUserManagement() {
       alert("Server error");
     }
   };
-
 
   const sortedFilteredUsers = useMemo(() => {
     let list = users.filter(
@@ -177,7 +166,6 @@ export default function AdminUserManagement() {
   return (
     <AdminLayout>
       <div className="p-6 dark:text-white">
-        {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold">User Management</h1>
           <p className="text-sm mt-1 dark:text-gray-300">Manage users in your organization</p>
@@ -216,7 +204,6 @@ export default function AdminUserManagement() {
           </div>
         </div>
 
-     
         <div className="mt-6 bg-white dark:bg-[#0f0f0f] rounded-xl shadow border dark:border-gray-700 overflow-hidden">
           <div className="max-h-[380px] overflow-y-auto">
             <table className="min-w-full text-sm divide-y dark:divide-gray-700">
@@ -267,7 +254,6 @@ export default function AdminUserManagement() {
         <div className="h-6" />
       </div>
 
-  
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl p-6 dark:text-white">
@@ -316,7 +302,6 @@ export default function AdminUserManagement() {
         </div>
       )}
 
-   
       {showDeleteModal && userToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl p-6 dark:text-white">
@@ -335,7 +320,6 @@ export default function AdminUserManagement() {
         </div>
       )}
 
- 
       {showViewModal && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl p-6 dark:text-white">
