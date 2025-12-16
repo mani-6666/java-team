@@ -88,17 +88,159 @@ export default function UserAnalytics() {
     ],
     []
   );
+});
 
-  const subjectData = useMemo(
-    () => [
-      { name: "Mat", value: 100, color: "#C7D2FE", label: "Mat : 100", labelColor: "#6366F1" },
-      { name: "Phy", value: 92, color: "#4F46E5", label: "Phy : 92", labelColor: "#10B981" },
-      { name: "Che", value: 90, color: "#E5E7EB", label: "Che : 90", labelColor: "#EAB308" },
-      { name: "Eng", value: 80, color: "#E5E7EB", label: "Eng : 80", labelColor: "#EF4444" },
-      { name: "Sci", value: 70, color: "#E5E7EB", label: "Sci : 70", labelColor: "#3B82F6" },
-    ],
-    []
+const MemoSubjectChart = React.memo(({ data }) => {
+  if (!data || data.length === 0) {
+    return (
+      <div className="w-full h-[260px] flex items-center justify-center text-gray-500">
+        No performance data yet
+      </div>
+    );
+  }
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <BarChart data={data} margin={{ top: 10, right: 20, left: -20, bottom: 5 }}>
+        <XAxis dataKey="name" tickLine={false} axisLine={false} />
+        <YAxis domain={[0, 100]} tickLine={false} axisLine={false} />
+        <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={45}>
+          {data.map((entry, idx) => (
+            <Cell key={idx} fill={entry.color} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
+});
+
+export default function Analytics() {
+  const API = "http://localhost:5000/api/user";
+  const userId = 1;
+  const orgId = null;
+  const period = "6months";
+
+  const [summary, setSummary] = useState({});
+  const [performance, setPerformance] = useState({});
+  const [ranks, setRanks] = useState({});
+  const [examChart, setExamChart] = useState([]);
+  const [subjectChart, setSubjectChart] = useState([]);
+
+  const [dateFilterOpen, setDateFilterOpen] = useState(false);
+  const [dateRange, setDateRange] = useState({ from: "", to: "" });
+
+  const safe = (v) => (v === undefined || v === null || v === "" ? 0 : v);
+
+  async function loadSummary() {
+    try {
+      const res = await axios.get(`${API}/analytics/summary`, {
+        params: { userId, orgId, period },
+      });
+      setSummary(res.data?.data || {});
+    } catch (err) {
+      console.error(err);
+      setSummary({});
+    }
+  }
+
+  async function loadPerformance() {
+    try {
+      const res = await axios.get(`${API}/analytics/performance`, {
+        params: { userId, orgId, period },
+      });
+      setPerformance(res.data?.data || {});
+    } catch (err) {
+      console.error(err);
+      setPerformance({});
+    }
+  }
+
+  async function loadRanks() {
+    try {
+      const res = await axios.get(`${API}/analytics/ranks`, {
+        params: { userId, orgId, period },
+      });
+      setRanks(res.data?.data || {});
+    } catch (err) {
+      console.error(err);
+      setRanks({});
+    }
+  }
+
+  async function loadExamChart() {
+    try {
+      const res = await axios.get(`${API}/analytics/exams-chart`, {
+        params: { userId, orgId },
+      });
+      const list = res.data?.data || [];
+      const mapped = list.map((x) => ({
+        name: x.title,
+        value: Number(x.score || 0),
+      }));
+      setExamChart(mapped);
+    } catch (err) {
+      console.error(err);
+      setExamChart([]);
+    }
+  }
+
+  async function loadSubjects() {
+    try {
+      const res = await axios.get(`${API}/analytics/subjects-chart`, {
+        params: { userId, orgId, period },
+      });
+      const list = res.data?.data || [];
+      const mapped = list.map((x, i) => ({
+        name: x.subject,
+        value: Number(x.avg_score || 0),
+        color: SUBJECT_COLORS[i % SUBJECT_COLORS.length],
+      }));
+      setSubjectChart(mapped);
+    } catch (err) {
+      console.error(err);
+      setSubjectChart([]);
+    }
+  }
+
+  async function loadExamwiseByRange() {
+    if (!dateRange.from || !dateRange.to) {
+      loadSubjects();
+      return;
+    }
+    try {
+      const res = await axios.get(`${API}/analytics/examwise-performance`, {
+        params: { userId, orgId, from: dateRange.from, to: dateRange.to },
+      });
+      const list = res.data?.data?.performance || [];
+      const mapped = list.map((x, i) => ({
+        name: x.subject,
+        value: Number(x.avg_score || 0),
+        color: SUBJECT_COLORS[i % SUBJECT_COLORS.length],
+      }));
+      setSubjectChart(mapped);
+    } catch (err) {
+      console.error(err);
+      setSubjectChart([]);
+    }
+  }
+
+  useEffect(() => {
+    loadSummary();
+    loadPerformance();
+    loadRanks();
+    loadExamChart();
+    loadSubjects();
+  }, []);
+
+  const apply = () => {
+    setDateFilterOpen(false);
+    loadExamwiseByRange();
+  };
+
+  const clear = () => {
+    setDateRange({ from: "", to: "" });
+    setDateFilterOpen(false);
+    loadSubjects();
+  };
 
   return (
     <UserLayout>
@@ -115,49 +257,34 @@ export default function UserAnalytics() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
-
             <Card title="Exam Summary">
-              <Row label="Total Exams" value="6" />
-              <Row label="Attempted" value="3" />
-              <Row label="Pending" value="3" />
-              <Row label="Completion Rate" value="50%" />
+              <Row label="Total Exams" value={safe(summary.totalExams)} />
+              <Row label="Attempted" value={safe(summary.attempted)} />
+              <Row label="Pending" value={safe(summary.pending)} />
+              <Row label="Completion Rate" value={`${safe(summary.completionRate)}%`} />
             </Card>
 
             <Card title="Performance Metrics">
-              <Row label="Average Score" value="85%" />
-              <Row label="Highest Score" value="92%" />
-              <Row label="Lowest Score" value="78%" />
-              <Row label="Improvement" value="+14%" isGreen />
+              <Row label="Average Score" value={`${safe(performance.avg_score)}%`} />
+              <Row label="Highest Score" value={`${safe(performance.highest_score)}%`} />
+              <Row label="Lowest Score" value={`${safe(performance.lowest_score)}%`} />
             </Card>
 
-            <Card title="Rank in Exam">
-              <Row label="Average Rank" value="3rd" />
-              <Row label="Last Exam Rank" value="2nd" />
-              <Row label="Best Exam Rank" value="1st" />
-              <Row label="Overall Subject Rank" value="2nd" />
+            <Card title="Rank in Exams">
+              <Row label="Average Rank" value={safe(ranks.averageRank)} />
+              <Row label="Last Exam Rank" value={safe(ranks.lastExamRank)} />
+              <Row label="Best Exam Rank" value={safe(ranks.recentExamRank)} />
             </Card>
-
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
             <Card>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Monthly Assessment Wise
-                </h2>
-
-                <DropdownSimple
-                  open={openPeriod}
-                  setOpen={setOpenPeriod}
-                  value={subscriberPeriod}
-                  onChange={setSubscriberPeriod}
-                  options={subscriberOptions}
-                />
-              </div>
-
-              <MemoSubscriberChart data={subscriberData} />
+              <h2 className="text-sm font-semibold mb-4 text-gray-900 dark:text-white">
+                Monthly Assessment Wise
+              </h2>
+              <MemoSubscriberChart data={examChart} />
             </Card>
+
             <Card>
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -170,18 +297,56 @@ export default function UserAnalytics() {
                 </div>
 
                 <div className="relative">
-                  <input
-                    type="date"
-                    className="p-2 rounded-md border border-gray-300 dark:border-gray-700 
-                               bg-white dark:bg-[#1F2937] text-gray-700 dark:text-gray-200 
-                               text-sm cursor-pointer"
-                  />
+                  <button
+                    onClick={() => setDateFilterOpen(!dateFilterOpen)}
+                    className="p-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1F2937]"
+                  >
+                    <Calendar size={18} />
+                  </button>
+
+                  {dateFilterOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#111827] border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-3 z-50">
+                      <p className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-200">
+                        Select Date Range
+                      </p>
+
+                      <div className="space-y-2 mb-3">
+                        <div>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">From</span>
+                          <input
+                            type="date"
+                            value={dateRange.from}
+                            onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
+                            className="w-full border rounded-md px-2 py-1 text-xs bg-white dark:bg-[#1F2937]"
+                          />
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">To</span>
+                          <input
+                            type="date"
+                            value={dateRange.to}
+                            onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
+                            className="w-full border rounded-md px-2 py-1 text-xs bg-white dark:bg-[#1F2937]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2">
+                        <button onClick={clear} className="px-3 py-1 rounded-md text-xs border">
+                          Clear
+                        </button>
+                        <button onClick={apply} className="px-3 py-1 rounded-md text-xs bg-[#4F46E5] text-white">
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <MemoSubjectChart data={subjectData} />
+              <MemoSubjectChart data={subjectChart} />
             </Card>
-
           </div>
 
         </div>
@@ -203,61 +368,11 @@ function Card({ children, title }) {
   );
 }
 
-function Row({ label, value, isGreen }) {
+function Row({ label, value }) {
   return (
     <div className="flex justify-between">
       <span className="text-gray-600 dark:text-gray-400">{label}</span>
-      <span
-        className={
-          isGreen ? "text-green-600 font-semibold" : "text-gray-900 dark:text-gray-100 font-medium"
-        }
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function DropdownSimple({ open, setOpen, value, onChange, options }) {
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="
-          px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md
-          bg-white dark:bg-[#1F2937] text-sm text-gray-700 dark:text-gray-200
-          flex items-center justify-between min-w-[150px]
-        "
-      >
-        {value}
-        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </button>
-
-      {open && (
-        <div
-          className="
-          absolute right-0 mt-2 w-full bg-white dark:bg-[#1F2937]
-          border border-gray-300 dark:border-gray-700 rounded-md shadow-lg z-50
-        "
-        >
-          {options.map((item) => (
-            <button
-              key={item}
-              onClick={() => {
-                onChange(item);
-                setOpen(false);
-              }}
-              className="
-                w-full text-left px-4 py-2 text-sm
-                text-gray-700 dark:text-gray-200
-                hover:bg-gray-100 dark:hover:bg-gray-800
-              "
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      )}
+      <span className="text-gray-900 dark:text-gray-100 font-medium">{value}</span>
     </div>
   );
 }

@@ -12,71 +12,6 @@ const filter2Options = {
   Status: ["Active", "Inactive"]
 };
 
-const convertDate = (d) => {
-  const [day, month, year] = d.split("-");
-  return new Date(`${year}-${month}-${day}`);
-};
-
-const originalExams = [
-  {
-    id: 1,
-    name: "Mathematics Final Exam",
-    type: "MCQs",
-    duration: 120,
-    questions: 50,
-    startDate: "11-11-2024",
-    examDate: "15-11-2024",
-    deadline: "15-11-2024",
-    userStatus: "Active",
-    status: "Active",
-    button: "start"
-  },
-  {
-    id: 2,
-    name: "Physics Midterm",
-    type: "MCQs",
-    duration: 90,
-    questions: 40,
-    startDate: "11-11-2024",
-    examDate: "15-11-2024",
-    deadline: "20-11-2024",
-    userStatus: "Active",
-    status: "Active",
-    attempted: true,
-    notAttempted: true,
-    missed: true,
-    score: 85,
-    button: "start"
-  },
-  {
-    id: 3,
-    name: "Chemistry Lab Test",
-    type: "Coding",
-    duration: 120,
-    questions: 50,
-    startDate: "11-11-2024",
-    examDate: "15-11-2024",
-    deadline: "10-11-2024",
-    userStatus: "Active",
-    status: "Inactive",
-    button: "completed"
-  },
-  {
-    id: 4,
-    name: "Mathematics 1st Term Exam",
-    type: "Coding",
-    duration: 120,
-    questions: 50,
-    startDate: "11-11-2024",
-    examDate: "15-11-2024",
-    deadline: "01-11-2024",
-    userStatus: "Active",
-    status: "Inactive",
-    missed: true,
-    button: "missed"
-  }
-];
-
 function StatusBadge({ status }) {
   return status === "Active" ? (
     <span className="px-2.5 py-[3px] text-[11px] rounded-md border border-green-500 text-green-700 bg-white">
@@ -106,13 +41,7 @@ function AttemptBadge({ label, variant }) {
 
 function ExamCard({ exam }) {
   return (
-    <div className="
-      bg-white dark:bg-[#0F1216]
-      border border-gray-200 dark:border-gray-700
-      rounded-2xl shadow-sm p-5
-      flex flex-col justify-between
-      min-h-[300px]
-    ">
+    <div className="bg-white dark:bg-[#0F1216] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm p-5 flex flex-col justify-between min-h-[300px]">
       <div className="space-y-2">
         <div className="flex justify-between items-start">
           <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white leading-tight">
@@ -129,10 +58,6 @@ function ExamCard({ exam }) {
 
         <TypeBadge type={exam.type} />
 
-        <p className="text-xs text-gray-700 dark:text-gray-300">
-          User Status: <span className="text-green-600 dark:text-green-400">{exam.userStatus}</span>
-        </p>
-
         <div className="flex gap-6 text-[13px] text-gray-700 dark:text-gray-300">
           <div className="flex items-center gap-1">
             <Clock size={15} /> {exam.duration} Min
@@ -143,66 +68,31 @@ function ExamCard({ exam }) {
         </div>
 
         <div className="flex gap-6 text-[12px] text-gray-600 dark:text-gray-400">
-          <span>Start date: {exam.startDate}</span>
-          <span>Start date: {exam.examDate}</span>
+          <span>Start: {exam.startDate}</span>
+          <span>Exam: {exam.examDate}</span>
         </div>
 
-        <p className="text-[12px] text-gray-600 dark:text-gray-400">
-          Deadline: {exam.deadline}
-        </p>
-
-        {exam.score && (
-          <div className="mt-1">
-            <p className="text-[12px] text-gray-700 dark:text-gray-300 mb-1">Your score :</p>
-            <div className="w-full h-2 bg-gray-200 dark:bg-gray-800 rounded-full">
-              <div className="h-2 rounded-full bg-[#4F46E5]" style={{ width: `${exam.score}%` }} />
-            </div>
-          </div>
-        )}
+        <p className="text-[12px] text-gray-600 dark:text-gray-400">Deadline: {exam.deadline}</p>
       </div>
 
       <div className="mt-4">
-
-        {exam.button === "start" && (
-          <button className="
-            w-full h-10 bg-[#4F46E5] text-white rounded-md 
-            text-sm font-medium flex items-center justify-center gap-2
-          ">
+        {exam.button === "Start Exam" && (
+          <button className="w-full h-10 bg-[#4F46E5] text-white rounded-md text-sm font-medium flex items-center justify-center gap-2">
             <Play size={16} /> Start Exam
           </button>
         )}
 
-        {exam.button === "completed" && (
-          <div className="flex justify-between items-center gap-6">
-            <button className="
-              h-9 px-6 bg-[#E5E7EB] rounded-md 
-              text-gray-800 text-[13px] font-medium
-            ">
-              Completed
-            </button>
-
-            <button className="
-              h-9 px-6 border border-[#4F46E5] text-[#4F46E5]
-              dark:text-blue-300 rounded-md text-[13px] font-medium
-              bg-white dark:bg-transparent
-            ">
-              View Result
-            </button>
-          </div>
+        {exam.button === "View Result" && (
+          <button className="w-full h-10 border border-[#4F46E5] text-[#4F46E5] dark:text-blue-300 rounded-md text-sm font-medium bg-white dark:bg-transparent">
+            View Result
+          </button>
         )}
 
-        {exam.button === "missed" && (
-          <div className="flex justify-between items-center">
-            <button className="
-              h-9 px-6 bg-[#E5E7EB] rounded-md 
-              text-gray-800 text-[13px] font-medium
-            ">
-              Missed
-            </button>
-            <div className="w-24"></div>
+        {exam.button === "Missed" && (
+          <div className="w-full h-10 bg-gray-200 rounded-md text-gray-700 text-sm font-medium flex items-center justify-center">
+            Missed
           </div>
         )}
-
       </div>
     </div>
   );
@@ -216,29 +106,50 @@ export default function UserMyExam() {
 
   const [finalFilter, setFinalFilter] = useState({ sort: null, type: null, status: null });
 
-  const applyFilter = () => {
-    let data = [...originalExams];
+  async function loadExams() {
+    try {
+      const res = await axios.get(`${BASE_URL}/my-exams`);
+      const list = res.data?.exams || [];
 
-    if (finalFilter.sort === "date-new")
-      data.sort((a, b) => convertDate(b.deadline) - convertDate(a.deadline));
+      const mapped = list.map(e => ({
+        id: e.examId,
+        name: e.name,
+        type: e.examType,
+        duration: e.duration,
+        questions: e.totalQuestions,
+        startDate: e.startTime?.slice(0, 10),
+        examDate: e.startTime?.slice(0, 10),
+        deadline: e.endTime?.slice(0, 10),
+        status: e.active_ui,
+        attempted: e.attempt_ui === "Attempted",
+        notAttempted: e.attempt_ui === "Not Attempted",
+        missed: e.attempt_ui === "Missed",
+        button: e.button_ui
+      }));
 
-    if (finalFilter.sort === "date-old")
-      data.sort((a, b) => convertDate(a.deadline) - convertDate(b.deadline));
+      setExams(mapped);
+    } catch (err) {
+      console.error(err);
+      setExams([]);
+    }
+  }
 
-    if (finalFilter.sort === "name-asc")
-      data.sort((a, b) => a.name.localeCompare(b.name));
+  useEffect(() => {
+    loadExams();
+  }, []);
 
-    if (finalFilter.sort === "name-desc")
-      data.sort((a, b) => b.name.localeCompare(a.name));
+  function applyFilter() {
+    let data = [...exams];
 
-    if (finalFilter.type)
-      data = data.filter((e) => e.type === finalFilter.type);
-
-    if (finalFilter.status)
-      data = data.filter((e) => e.status === finalFilter.status);
+    if (finalFilter.sort === "name-asc") data.sort((a, b) => a.name.localeCompare(b.name));
+    if (finalFilter.sort === "name-desc") data.sort((a, b) => b.name.localeCompare(a.name));
+    if (finalFilter.sort === "date-old") data.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+    if (finalFilter.sort === "date-new") data.sort((a, b) => new Date(b.deadline) - new Date(a.deadline));
+    if (finalFilter.type) data = data.filter((e) => e.type === finalFilter.type);
+    if (finalFilter.status) data = data.filter((e) => e.status === finalFilter.status);
 
     return data;
-  };
+  }
 
   const finalList = applyFilter();
 
@@ -250,20 +161,14 @@ export default function UserMyExam() {
           <div className="pt-1 flex flex-col md:flex-row md:justify-between md:items-center">
             <div>
               <h1 className="text-[26px] font-semibold">Available Exams</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Take mock tests and organization exams
-              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Take mock tests and organization exams</p>
             </div>
 
             <div className="flex gap-3 flex-col sm:flex-row">
-              
+
               <div className="relative">
                 <button
-                  className="
-                    px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md 
-                    bg-white dark:bg-gray-800 text-sm min-w-[120px]
-                    flex justify-between items-center
-                  "
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-sm min-w-[120px] flex justify-between items-center"
                   onClick={() => {
                     setOpen1(!open1);
                     setOpen2(false);
@@ -274,10 +179,7 @@ export default function UserMyExam() {
                 </button>
 
                 {open1 && (
-                  <div className="
-                    absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 
-                    border border-gray-300 dark:border-gray-700 rounded-md shadow-lg z-50
-                  ">
+                  <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-lg z-50">
                     {filter1Options.map((o) => (
                       <button
                         key={o}
@@ -299,15 +201,11 @@ export default function UserMyExam() {
               <div className="relative">
                 <button
                   disabled={filter2Options[filter1].length === 0}
-                  className={`
-                    px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm 
-                    min-w-[120px] flex justify-between items-center 
-                    ${
-                      filter2Options[filter1].length === 0
-                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200"
-                    }
-                  `}
+                  className={`px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm min-w-[120px] flex justify-between items-center ${
+                    filter2Options[filter1].length === 0
+                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                      : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200"
+                  }`}
                   onClick={() => {
                     if (filter2Options[filter1].length > 0) {
                       setOpen2(!open2);
@@ -320,19 +218,14 @@ export default function UserMyExam() {
                 </button>
 
                 {open2 && (
-                  <div className="
-                    absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 
-                    border border-gray-300 dark:border-gray-700 rounded-md shadow-lg z-50
-                  ">
+                  <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-lg z-50">
                     {filter2Options[filter1].map((item) => (
                       <button
                         key={item}
                         onClick={() => {
                           setFilter2(item);
-                          if (filter1 === "Name")
-                            setFinalFilter({ sort: item.includes("Asc") ? "name-asc" : "name-desc" });
-                          if (filter1 === "Date")
-                            setFinalFilter({ sort: item.includes("Asc") ? "date-old" : "date-new" });
+                          if (filter1 === "Name") setFinalFilter({ sort: item.includes("Asc") ? "name-asc" : "name-desc" });
+                          if (filter1 === "Date") setFinalFilter({ sort: item.includes("Asc") ? "date-old" : "date-new" });
                           if (filter1 === "Type") setFinalFilter({ type: item });
                           if (filter1 === "Status") setFinalFilter({ status: item });
                           setOpen2(false);
@@ -350,9 +243,11 @@ export default function UserMyExam() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
-            {finalList.map((exam) => (
-              <ExamCard key={exam.id} exam={exam} />
-            ))}
+            {finalList.length === 0 ? (
+              <div className="col-span-full text-center text-gray-500 py-10">No exams found</div>
+            ) : (
+              finalList.map((exam) => <ExamCard key={exam.id} exam={exam} />)
+            )}
           </div>
 
         </div>

@@ -9,185 +9,348 @@ const API = "http://localhost:5000/admin/users";
 export default function AdminUserManagement() {
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState("All");
-  const [users, setUsers] = useState([]);
-
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
-
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const loadUsers = async () => {
-    try {
-      const res = await axios.get(API);
-      setUsers(res.data.users);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const [users, setUsers] = useState([]);
+
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    gender: "Male",
+    age: "",
+    role: "Invigilator",
+    status: "Active",
+    date: "",
+    attempts: 0,
+    score: "0%",
+  });
 
   useEffect(() => {
-    loadUsers();
+    fetchUsers();
   }, []);
 
   const getStatusColor = (s) => {
-    if (s === "active") return "bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200";
-    if (s === "schedule") return "bg-yellow-100 text-yellow-700 dark:bg-yellow-800 dark:text-yellow-200";
-    if (s === "completed") return "bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200";
-    return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200";
+    if (!s) return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-white";
+    if (s.toLowerCase() === "active") return "bg-green-100 text-green-700 dark:bg-green-700 dark:text-white";
+    if (s.toLowerCase() === "upcoming") return "bg-yellow-100 text-yellow-700 dark:bg-yellow-700 dark:text-white";
+    if (s.toLowerCase() === "completed") return "bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-white";
+    return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-white";
   };
 
-  const filteredUsers = users
-    .filter(
+  const fetchUsers = async () => {
+    try {
+      const q = new URLSearchParams();
+      if (search) q.set("search", search);
+      if (filterRole && filterRole !== "All") q.set("role", filterRole);
+
+      const res = await fetch(`http://localhost:5000/admin?${q.toString()}`);
+      const json = await res.json();
+      if (json.success) setUsers(json.users || []);
+      else {
+        console.error("Failed fetching users:", json);
+        setUsers([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setUsers([]);
+    }
+  };
+
+  const handleAddUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.phone) {
+      alert("Please fill Name, Email and Phone");
+      return;
+    }
+
+    try {
+      const body = {
+        name: newUser.name,
+        email: newUser.email,
+        mobile: newUser.phone,
+        gender: newUser.gender,
+        age: newUser.age,
+      };
+
+      const res = await fetch("http://localhost:5000/admin/users/invigilators", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.message || "Failed to create invigilator");
+        return;
+      }
+
+      alert("Invigilator created!");
+      setShowAddModal(false);
+      resetNewUser();
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      alert("Server error");
+    }
+  };
+
+  const resetNewUser = () =>
+    setNewUser({
+      name: "",
+      email: "",
+      phone: "",
+      gender: "Male",
+      age: "",
+      role: "Invigilator",
+      status: "Active",
+      date: "",
+      attempts: 0,
+      score: "0%",
+    });
+
+  const openDeleteModal = (user) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+    try {
+      const res = await fetch(`http://localhost:5000/admin/${userToDelete.id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.message || "Failed to delete user");
+        return;
+      }
+      alert("User deleted");
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      alert("Server error");
+    }
+  };
+
+  const openViewModal = async (id) => {
+    try {
+      const res = await fetch(`http://localhost:5000/admin/${id}`);
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.message || "Failed to fetch user");
+        return;
+      }
+      setSelectedUser(json.data);
+      setShowViewModal(true);
+    } catch (err) {
+      console.error(err);
+      alert("Server error");
+    }
+  };
+
+  const sortedFilteredUsers = useMemo(() => {
+    let list = users.filter(
       (u) =>
-        u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase())
-    )
-    .filter((u) => (filterRole === "All" ? true : u.role === filterRole.toLowerCase()));
+        u.name?.toLowerCase().includes(search.toLowerCase()) ||
+        u.email?.toLowerCase().includes(search.toLowerCase()) ||
+        (u.status || "").toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (filterRole !== "All") list = list.filter((u) => (u.role || "").toLowerCase() === filterRole.toLowerCase());
+
+    return list;
+  }, [users, search, filterRole]);
 
   return (
     <AdminLayout>
-      <div className="p-4 dark:bg-gray-900 min-h-screen dark:text-white">
-<h1 className="text-3xl font-semibold tracking-wide dark:text-white">
-  User Management
-</h1>
-<p className="text-base text-gray-600 dark:text-gray-300 mt-2">
-  Manage users in your organization efficiently
-</p>
+      <div className="p-6 dark:text-white">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">User Management</h1>
+          <p className="text-sm mt-1 dark:text-gray-300">Manage users in your organization</p>
+        </div>
 
-        {/* SEARCH SECTION */}
-        <div className="flex flex-col md:flex-row justify-between items-center mt-6 gap-4">
-          <div className="relative w-full max-w-2xl">
+        <div className="mt-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="relative w-full md:w-1/2">
             <input
               type="text"
-              placeholder="Search by name or email"
+              placeholder="Search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-5 py-3 rounded-lg border dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              className="w-full pl-4 pr-10 py-2 border rounded-lg shadow-sm dark:bg-[#1a1a1a] dark:border-gray-700 dark:text-white"
             />
-            <Search className="absolute right-4 top-4 text-gray-500 dark:text-gray-300" size={18} />
+            <Search className="absolute right-3 top-2.5 text-gray-400" size={18} />
           </div>
 
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="px-4 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-          >
-            <option>All</option>
-            <option>Student</option>
-            <option>Invigilator</option>
-            <option>Admin</option>
-          </select>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <select
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value)}
+              className="px-4 py-2 rounded-lg border dark:bg-[#1a1a1a] dark:text-white dark:border-gray-700"
+            >
+              <option value="All">All</option>
+              <option value="Student">Student</option>
+              <option value="Invigilator">Invigilator</option>
+              <option value="Admin">Admin</option>
+            </select>
+
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="ml-2 px-4 py-2 bg-[#4f6df5] text-white rounded-lg shadow"
+            >
+              Add New Invigilator
+            </button>
+          </div>
         </div>
 
-        {/* TABLE */}
-        <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
-          <table className="w-full text-sm">
-
-            <thead className="bg-gray-100 dark:bg-gray-700">
-              <tr className="dark:text-white">
-                <th className="py-3 px-4">Name</th>
-                <th className="py-3 px-4">Email</th>
-                <th className="py-3 px-4">Role</th>
-                <th className="py-3 px-4">Enroll Date</th>
-                <th className="py-3 px-4">Exam Attempted</th>
-                <th className="py-3 px-4">Avg Score</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredUsers.map((u) => (
-                <tr key={u.id} className="border-t dark:border-gray-700 dark:text-white">
-
-                  <td className="py-3 px-4">{u.name}</td>
-                  <td className="py-3 px-4">{u.email}</td>
-                  <td className="py-3 px-4">{u.role}</td>
-
-                  <td className="py-3 px-4">
-                    {u.enrollDate ? u.enrollDate.slice(0, 10) : "—"}
-                  </td>
-
-                  <td className="py-3 px-4 text-center">
-                    {u.examAttempted ?? 0}
-                  </td>
-
-                  <td className="py-3 px-4 text-center">
-                    {u.avgScore ? `${u.avgScore}%` : "0%"}
-                  </td>
-
-                  <td className="py-3 px-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs ${getStatusColor(u.status)}`}
-                    >
-                      {u.status}
-                    </span>
-                  </td>
-
-                  <td className="py-3 px-4 flex gap-4">
-                    <Eye
-                      size={18}
-                      className="cursor-pointer dark:text-white"
-                      onClick={() => {
-                        setSelectedUser(u);
-                        setShowViewModal(true);
-                      }}
-                    />
-
-                    <Trash2
-                      size={18}
-                      className="text-red-500 cursor-pointer"
-                      onClick={() => {
-                        setUserToDelete(u);
-                        setShowDeleteModal(true);
-                      }}
-                    />
-                  </td>
-
+        <div className="mt-6 bg-white dark:bg-[#0f0f0f] rounded-xl shadow border dark:border-gray-700 overflow-hidden">
+          <div className="max-h-[380px] overflow-y-auto">
+            <table className="min-w-full text-sm divide-y dark:divide-gray-700">
+              <thead className="bg-gray-100 dark:bg-[#1b1b1b] sticky top-0 z-10">
+                <tr>
+                  <th className="py-3 px-4 text-left">Name</th>
+                  <th className="py-3 px-4 text-left">Email</th>
+                  <th className="py-3 px-4 text-left">Role</th>
+                  <th className="py-3 px-4 text-left">Enroll Date</th>
+                  <th className="py-3 px-4 text-center">Exam Attempted</th>
+                  <th className="py-3 px-4 text-center">Avg Score</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
-              ))}
-            </tbody>
+              </thead>
 
-          </table>
+              <tbody className="bg-white dark:bg-[#0f0f0f] dark:text-white">
+                {sortedFilteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="py-8 text-center dark:text-gray-400">No users found.</td>
+                  </tr>
+                ) : (
+                  sortedFilteredUsers.map((u) => (
+                    <tr key={u.id} className="border-t dark:border-gray-700">
+                      <td className="py-3 px-4">{u.name}</td>
+                      <td className="py-3 px-4">{u.email}</td>
+                      <td className="py-3 px-4">{u.role}</td>
+                      <td className="py-3 px-4">{u.enroll_date ?? u.date ?? ""}</td>
+                      <td className="py-3 px-4 text-center">{u.attempts ?? 0}</td>
+                      <td className="py-3 px-4 text-center">{u.score ?? "0%"}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(u.status)}`}>{u.status || "Unknown"}</span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-3">
+                          <Eye size={18} className="cursor-pointer" onClick={() => openViewModal(u.id)} />
+                          <Trash2 size={18} className="cursor-pointer text-rose-500" onClick={() => openDeleteModal(u)} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        <div className="h-6" />
       </div>
 
-      {/* DELETE MODAL */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md dark:text-white">
-            <h2 className="text-lg font-bold">Delete User</h2>
-            <p className="mb-6">Are you sure you want to delete {userToDelete?.name}?</p>
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl p-6 dark:text-white">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-[#4f6df5]">Add New Invigilator</h2>
+              <button onClick={() => setShowAddModal(false)}><X size={20} /></button>
+            </div>
 
-            <div className="flex justify-end gap-4">
-              <button className="px-4 py-2 bg-gray-300 dark:bg-gray-600 rounded" onClick={() => setShowDeleteModal(false)}>
-                Cancel
-              </button>
-              <button className="px-4 py-2 bg-red-600 text-white rounded" onClick={confirmDelete}>
-                Delete
-              </button>
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="text-sm">Full Name</label>
+                <input value={newUser.name} onChange={(e) => setNewUser((p) => ({ ...p, name: e.target.value }))} className="w-full mt-1 p-3 border rounded-lg dark:bg-[#0f0f0f] dark:border-gray-700" placeholder="Enter name" />
+              </div>
+
+              <div>
+                <label className="text-sm">Email</label>
+                <input value={newUser.email} onChange={(e) => setNewUser((p) => ({ ...p, email: e.target.value }))} className="w-full mt-1 p-3 border rounded-lg dark:bg-[#0f0f0f] dark:border-gray-700" placeholder="Enter email" />
+              </div>
+
+              <div>
+                <label className="text-sm">Phone Number</label>
+                <input value={newUser.phone} onChange={(e) => setNewUser((p) => ({ ...p, phone: e.target.value }))} className="w-full mt-1 p-3 border rounded-lg dark:bg-[#0f0f0f] dark:border-gray-700" placeholder="+91 1234567891" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm">Gender</label>
+                  <select value={newUser.gender} onChange={(e) => setNewUser((p) => ({ ...p, gender: e.target.value }))} className="w-full mt-1 p-3 border rounded-lg dark:bg-[#0f0f0f] dark:border-gray-700">
+                    <option>male</option>
+                    <option>female</option>
+                    <option>other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm">Age</label>
+                  <input type="number" value={newUser.age} onChange={(e) => setNewUser((p) => ({ ...p, age: e.target.value }))} className="w-full mt-1 p-3 border rounded-lg dark:bg-[#0f0f0f] dark:border-gray-700" placeholder="35" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button onClick={handleAddUser} className="px-6 py-2 bg-[#4f6df5] text-white rounded-lg w-full">Create</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* VIEW MODAL */}
-      {showViewModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md dark:text-white">
-            <h2 className="text-lg font-bold">User Details</h2>
+      {showDeleteModal && userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl p-6 dark:text-white">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Delete User</h2>
+              <button onClick={() => setShowDeleteModal(false)}><X size={18} /></button>
+            </div>
 
-            <p><strong>Name:</strong> {selectedUser?.name}</p>
-            <p><strong>Email:</strong> {selectedUser?.email}</p>
-            <p><strong>Phone:</strong> {selectedUser?.phone}</p>
-            <p><strong>Age:</strong> {selectedUser?.age}</p>
-            <p><strong>Gender:</strong> {selectedUser?.gender}</p>
+            <p>Are you sure you want to delete <strong>{userToDelete.name}</strong>? This action cannot be undone.</p>
 
-            <div className="flex justify-end mt-4">
-              <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={() => setShowViewModal(false)}>
-                Close
-              </button>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg">Cancel</button>
+              <button onClick={confirmDelete} className="px-4 py-2 bg-rose-600 text-white rounded-lg">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showViewModal && selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl p-6 dark:text-white">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">User Details</h2>
+              <button onClick={() => setShowViewModal(false)}><X size={18} /></button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-300">Phone Number</p>
+                <p className="font-medium">{selectedUser.phone}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-300">Gender</p>
+                <p className="font-medium">{selectedUser.gender}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-300">Age</p>
+                <p className="font-medium">{selectedUser.age}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button onClick={() => setShowViewModal(false)} className="px-5 py-2 bg-[#4f6df5] text-white rounded-lg">Close</button>
             </div>
           </div>
         </div>
