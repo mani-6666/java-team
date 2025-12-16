@@ -1,5 +1,5 @@
-import UserLayout from "../usercomponents/UserLayout";
 import { Trophy } from "lucide-react";
+import UserLayout from "../../components/UserLayout";
 
 const summaryData = [
   { id: 1, value: 5, label: "Total Achievements" },
@@ -89,7 +89,7 @@ function AchievementIcon({ status }) {
   );
 }
 
-export default function Achievements() {
+export default function UserAchievements() {
   return (
     <UserLayout>
       <div className="min-h-screen bg-gray-50 dark:bg-[#0B1222] px-1 sm:px-3 py-2 mt-[-14px]">

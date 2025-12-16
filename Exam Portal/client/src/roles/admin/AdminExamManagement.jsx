@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import AdminLayout from "../adminComponents/AdminLayout";
+import AdminLayout from "../../components/AdminLayout";
 import { Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import axios from "axios";

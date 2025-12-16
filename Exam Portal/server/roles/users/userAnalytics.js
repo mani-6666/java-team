@@ -1,5 +1,5 @@
 // const express = require("express");
-// const db = require("../config/db");
+// const db = require("../../config/db.js");
 
 // const router = express.Router();
 
@@ -405,7 +405,7 @@
 
 // module.exports = router;
 const express = require("express");
-const db = require("../config/db");
+const db = require("../../config/db.js");
 
 const router = express.Router();
 

@@ -1,8 +1,8 @@
 // controllers/profileController.js
 const express = require("express");
 const router = express.Router();
-const db = require("../config/database");
-const verifyToken = require("../authentication/verifyToken");
+const db = require("../../config/db.js");
+const {verifyToken} = require("../../authentication/verifyToken.js");
 
 // Allowed fields per role
 const PROFILE_FIELDS = {

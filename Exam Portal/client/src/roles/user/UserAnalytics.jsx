@@ -1,4 +1,3 @@
-import UserLayout from "../usercomponents/UserLayout";
 import React, { useState, useMemo } from "react";
 import {
   BarChart,
@@ -9,6 +8,7 @@ import {
   Cell,
 } from "recharts";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import UserLayout from "../../components/UserLayout";
 
 const MemoSubscriberChart = React.memo(({ data }) => (
   <ResponsiveContainer width="100%" height={260}>
@@ -72,7 +72,7 @@ const MemoSubjectChart = React.memo(({ data }) => (
   </ResponsiveContainer>
 ));
 
-export default function Analytics() {
+export default function UserAnalytics() {
   const [subscriberPeriod, setSubscriberPeriod] = useState("3 Months");
   const [openPeriod, setOpenPeriod] = useState(false);
 

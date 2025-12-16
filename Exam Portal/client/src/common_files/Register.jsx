@@ -492,6 +492,8 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { baseUrl } from "../App";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -581,7 +583,7 @@ export default function Register() {
   };
 
   // Submit Form
-  const handleSubmit = (e) => {
+  const handleSubmit = async(e) => {
     e.preventDefault();
 
     setTouched({
@@ -596,14 +598,23 @@ export default function Register() {
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length === 0) {
-      navigate("/userlogin");
+      try {
+        const response = await axios.post(`${baseUrl}/auth/register`,{
+          fullName:formData.fullName, email:formData.email, password:formData.password, organizationId:formData.organisationId, mobile:"1234567790", gender:"male"
+        })
+        if(response.status === 201){
+          sessionStorage.setItem("role","user")
+          navigate("/login")
+        }
+      } catch (error) {
+        console.log(error.message)
+      }
     }
   };
 
-  // Flip to Login
   const goToLogin = () => {
     setStartFlip(true);
-    setTimeout(() => navigate("/userlogin"), 350);
+    setTimeout(() => navigate("/login"), 350);
   };
 
   return (

@@ -1,20 +1,20 @@
 const express = require("express");
 const router = express.Router();
 
-const verifyToken = require("../authentication/verifyToken.js");
+const {verifyToken,authorizeRole} = require("../authentication/verifyToken.js");
 
 // ======================== Controllers ========================
 
 // 🔓 Public (No token required)
-const userAuthController = require("../controllers/userAuthController.js"); 
+// const userAuthController = require("../common_files/userAuthController.js"); 
 // /auth/register  /auth/login
 
 // 🔐 Private (Login + USER role required)
-const dashboardController = require("../controllers/userDashboard.js");
-const userExamsController = require("../controllers/userExams.js");
-const studyMaterialsController = require("../controllers/studyMaterials.js");
-const userAnalyticsController = require("../controllers/userAnalytics.js");
-const userAchievementsController = require("../controllers/userAchievements.js");
+const dashboardController = require("../roles/users/userDashboard.js");
+const userExamsController = require("../roles/users/userExams.js");
+const studyMaterialsController = require("../roles/users/studyMaterials.js");
+const userAnalyticsController = require("../roles/users/userAnalytics.js");
+const userAchievementsController = require("../roles/users/userAchievements.js");
 //const userProfileController = require("../controllers/userProfile.js");
 // const userChatboxController = require("../controllers/userChatbox.js");
 
@@ -22,7 +22,7 @@ const userAchievementsController = require("../controllers/userAchievements.js")
 // ========================================================================
 // 🔓 PUBLIC ROUTES (Register + Login)
 // ========================================================================
-router.use("/auth", userAuthController);  
+// router.use("/auth", userAuthController);  
 // → POST /auth/register
 // → POST /auth/login
 
@@ -30,20 +30,20 @@ router.use("/auth", userAuthController);
 // ========================================================================
 // 🔐 PROTECTED ROUTES (Token required + USER role only)
 // ========================================================================
-router.use(
-  "/",
-  verifyToken,
-  (req, res, next) => {
-    const userRole = String(req.user.role || '').toUpperCase();
-    if (userRole !== "USER") {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied: USER role required",
-      });
-    }
-    next();
-  }
-);
+// router.use(
+//   "/",
+//   verifyToken,
+//   (req, res, next) => {
+//     const userRole = String(req.user.role || '').toUpperCase();
+//     if (userRole !== "USER") {
+//       return res.status(403).json({
+//         success: false,
+//         message: "Access denied: USER role required",
+//       });
+//     }
+//     next();
+//   }
+// );
 
 
 // ========================================================================
@@ -51,6 +51,7 @@ router.use(
 // ========================================================================
 
 // Dashboard APIs
+router.use("/",verifyToken,authorizeRole('user'));
 router.use("/", dashboardController);
 
 // Exams APIs

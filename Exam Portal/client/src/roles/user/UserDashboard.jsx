@@ -1,4 +1,3 @@
-import UserLayout from "../usercomponents/UserLayout";
 import {
   ResponsiveContainer,
   LineChart,
@@ -8,6 +7,7 @@ import {
   Tooltip
 } from "recharts";
 import { FileText, TrendingUp, Trophy, BookOpen } from "lucide-react";
+import UserLayout from "../../components/UserLayout";
 
 const stats = [
   { id: 1, label: "Total Exams", value: 6, description: "4 currently active", icon: FileText },
@@ -71,7 +71,7 @@ function ExamTag({ label }) {
   );
 }
 
-export default function Dashboard() {
+export default function UserDashboard() {
   return (
     <UserLayout>
       <div className="w-full min-h-[calc(100vh-4rem)] bg-gray-50 dark:bg-[#0D1117] text-gray-900 dark:text-white">

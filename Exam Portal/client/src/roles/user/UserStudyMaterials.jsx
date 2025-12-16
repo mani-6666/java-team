@@ -1,6 +1,6 @@
-import UserLayout from "../usercomponents/UserLayout";
 import { useState, useMemo } from "react";
 import { FileText, Search, ChevronDown, ChevronUp } from "lucide-react";
+import UserLayout from "../../components/UserLayout";
 
 const materialsData = [
   {
@@ -109,7 +109,7 @@ function MaterialRow({ material, activeFilter }) {
   );
 }
 
-export default function StudyMaterials() {
+export default function UserStudyMaterials() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Materials");
   const [dropdown, setDropdown] = useState(false);

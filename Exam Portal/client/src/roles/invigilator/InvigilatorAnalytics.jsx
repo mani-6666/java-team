@@ -13,7 +13,7 @@ import {
   ResponsiveContainer
 } from "recharts";
 
-export default function Analytics() {
+export default function InvigilatorAnalytics() {
 
   // -------------- STATES --------------
   const [summary, setSummary] = useState(null);

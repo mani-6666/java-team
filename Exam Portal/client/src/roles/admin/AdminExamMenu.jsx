@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import AdminLayout from "../adminComponents/AdminLayout";
+import AdminLayout from "../../components/AdminLayout";
 import {
   Eye,
   Pencil,

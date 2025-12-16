@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { FileText } from "lucide-react";
 
-const GradingQueue = () => {
+const InvigilatorGradingQueue = () => {
   const [step, setStep] = useState("queue");
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [queue, setQueue] = useState([]);
@@ -213,6 +213,6 @@ const GradingQueue = () => {
   );
 };
 
-export default GradingQueue;
+export default InvigilatorGradingQueue;
 
 

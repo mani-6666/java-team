@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import AdminLayout from "../adminComponents/AdminLayout";
 import {
   Send,
   ChevronDown,
   Paperclip,
   FileText,
 } from "lucide-react";
+import AdminLayout from "../../components/AdminLayout";
 
 export default function AdminChatbox() {
   const [selectedChat, setSelectedChat] = useState(0);

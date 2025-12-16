@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from "react";
-import AdminLayout from "../adminComponents/AdminLayout";
+import AdminLayout from "../../components/AdminLayout";
 import axios from "axios";
 
 import {

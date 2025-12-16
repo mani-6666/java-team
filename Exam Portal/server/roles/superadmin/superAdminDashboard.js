@@ -1,5 +1,5 @@
 const express = require("express");
-const db = require("../config/database");
+const db = require("../../config/db.js");
 const router = express.Router();
 //SUPER ADMIN DASHBOARD SUMMARY 
 router.get("/summary", async (req, res) => {

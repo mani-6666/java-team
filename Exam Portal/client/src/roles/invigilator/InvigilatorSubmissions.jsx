@@ -4,7 +4,7 @@ import { Clock, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const StudentSubmissions = () => {
+const InvigilatorSubmissions = () => {
   const navigate = useNavigate();
 
   const [exams, setExams] = useState([]);
@@ -159,4 +159,4 @@ const StudentSubmissions = () => {
   );
 };
 
-export default StudentSubmissions;
+export default InvigilatorSubmissions;

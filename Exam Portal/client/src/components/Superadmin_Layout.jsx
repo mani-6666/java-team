@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
-import { NavLink } from "react-router-dom";
-import NotificationDropdown from "../common_files/NotificationDropdown";
+import { NavLink, useNavigate } from "react-router-dom";
+// import NotificationDropdown from "../common_files/NotificationDropdown";
 
 import {
   LayoutDashboard,
@@ -144,6 +144,7 @@ export function Superadmin_Navbar({ setOpenProfile }) {
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
   const [openNotif, setOpenNotif] = useState(false);
   const notifRef = useRef(null);
+  
 
   const [notifications, setNotifications] = useState([
     {
@@ -216,12 +217,12 @@ export function Superadmin_Navbar({ setOpenProfile }) {
             </span>
           </button>
 
-          {openNotif && (
+          {/* {openNotif && (
             <NotificationDropdown
               notifications={notifications}
               setNotifications={setNotifications}
             />
-          )}
+          )} */}
         </div>
 
         {/* PROFILE IMAGE */}
@@ -240,6 +241,12 @@ export function Superadmin_Navbar({ setOpenProfile }) {
 export function Superadmin_Sidebar() {
   const [open, setOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(true);
+  const navigate = useNavigate();
+
+  const handleLogout = ()=>{
+    sessionStorage.clear()
+    navigate('/login')
+  }
 
   return (
     <>
@@ -274,7 +281,7 @@ export function Superadmin_Sidebar() {
 
           <div className="flex flex-col gap-2 text-[15px]">
             <NavLink
-              to="/"
+              to="/super-admin/dashboard"
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-lg ${
                   isActive
@@ -287,7 +294,7 @@ export function Superadmin_Sidebar() {
             </NavLink>
 
             <NavLink
-              to="/clients"
+              to="/super-admin/clients"
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-lg ${
                   isActive
@@ -300,7 +307,7 @@ export function Superadmin_Sidebar() {
             </NavLink>
 
             <NavLink
-              to="/subscriptions"
+              to="/super-admin/subscriptions"
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-lg ${
                   isActive
@@ -328,7 +335,7 @@ export function Superadmin_Sidebar() {
             {analyticsOpen && (
               <div className="ml-10 flex flex-col gap-1">
                 <NavLink
-                  to="/revenue"
+                  to="/super-admin/revenue"
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2 rounded-md ${
                       isActive
@@ -341,7 +348,7 @@ export function Superadmin_Sidebar() {
                 </NavLink>
 
                 <NavLink
-                  to="/users"
+                  to="/super-admin/users"
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2 rounded-md ${
                       isActive
@@ -356,7 +363,7 @@ export function Superadmin_Sidebar() {
             )}
 
             <NavLink
-              to="/chatbox"
+              to="/super-admin/chatbox"
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-lg ${
                   isActive
@@ -370,7 +377,7 @@ export function Superadmin_Sidebar() {
           </div>
 
           <div className="mt-auto pt-6 border-t dark:border-gray-700">
-            <button className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-red-600 transition">
+            <button className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-red-600 transition" onClick={handleLogout}>
               <LogOut size={18} /> Logout
             </button>
           </div>
