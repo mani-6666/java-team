@@ -1,51 +1,66 @@
 const express = require('express');
-const pool = require('../config/db.js');
+const pool = require('../../config/db.js');
 const router = express.Router();
 
 router.get("/submission/exams", async (req, res) => {
-    try {
-        const invigilatorId = req.user.id;
-        const organizerId = req.user.organizationId;
+  try {
+    const invigilatorId = req.user.id;
+    const organizerId = req.user.organizationId;
 
-        const query = `
-        SELECT 
-            e.exam_id,
-            e.title AS exam_title,
-            e.description AS exam_description,
-            e.duration,
-            e.total_questions,
-            e.exam_type,
-            e.status AS exam_status,
+    const query = `
+      SELECT
+        e.exam_id,
+        e.title,
+        e.type,
+        e.duration_min,
+        COUNT(ea.attempt_id)::int AS total_attempts,
 
-            -- total submissions
-            COUNT(s.*)::int AS total,
+        COUNT(*) FILTER (
+          WHERE ea.status = 'evaluated'
+        )::int AS graded,
 
-            -- graded & pending
-            COUNT(s.*) FILTER (WHERE s.status = 'graded')::int AS graded,
-            COUNT(s.*) FILTER (WHERE s.status = 'pending')::int AS pending
+        COUNT(*) FILTER (
+          WHERE ea.status = 'submitted'
+        )::int AS pending,
 
-        FROM exams e
-        LEFT JOIN submissions s ON s.exam_id = e.exam_id
-        WHERE e.assigned_to = $1
-          AND e.organizer_id = $2
-        GROUP BY e.exam_id
-        ORDER BY e.exam_id DESC;
-        `;
+        CASE
+          WHEN COUNT(*) FILTER (WHERE ea.status = 'submitted') = 0
+            AND COUNT(ea.attempt_id) > 0
+            THEN 'Completed'
+          ELSE 'In Progress'
+        END AS exam_status
 
-        const result = await pool.query(query, [invigilatorId, organizerId]);
+      FROM mainexamportal.exams e
+      LEFT JOIN mainexamportal.exam_attempt ea
+        ON ea.exam_id = e.exam_id
 
-        return res.json({
-            success: true,
-            exams: result.rows
-        });
+      WHERE e.invigilator_id = $1
+        AND e.org_id = $2
+        AND e.is_deleted = false
 
-    } catch (err) {
-        return res.status(500).json({
-            success: false,
-            message: "Failed to load exam list",
-            error: err.message
-        });
-    }
+      GROUP BY e.exam_id, e.title, e.type, e.duration_min
+      ORDER BY e.created_at DESC;
+    `;
+
+
+    const { rows } = await pool.query(query, [
+      invigilatorId,
+      organizerId
+    ]);
+
+    res.json({
+      success: true,
+      submissions: rows
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
 });
+
+
 
 module.exports = router;

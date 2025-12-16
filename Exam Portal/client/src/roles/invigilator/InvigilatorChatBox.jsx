@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
-import InvLayout from "../components/InvLayout";
 import { Send, ChevronDown, Paperclip, FileText } from "lucide-react";
+import InvigilatorLayout from "../../components/InvigilatorLayout";
 
-export default function AdminChatbox() {
+export default function InvigilatorChatBox() {
   const [selectedChat, setSelectedChat] = useState(0);
   const [newMessage, setNewMessage] = useState("");
   const [attachments, setAttachments] = useState([]);
@@ -165,7 +165,7 @@ const [chats, setChats] = useState([
       : chats.filter((c) => c.status === activeFilter);
 
   return (
-    <InvLayout>
+    <InvigilatorLayout>
       <h1 className="text-2xl font-bold mb-1 dark:text-white">Messages</h1>
       <p className="text-gray-500 dark:text-gray-300 mb-6">
         Communicate with Super admin, users and invigilator
@@ -400,6 +400,6 @@ const [chats, setChats] = useState([
           border-radius: 10px;
         }
       `}</style>
-    </InvLayout>
+    </InvigilatorLayout>
   );
 }

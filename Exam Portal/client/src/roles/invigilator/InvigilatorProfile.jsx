@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { X, Camera } from "lucide-react";
 
-export default function InvProfile({ onClose }) {
+export default function InvigilatorProfile({ onClose }) {
   const [isEditing, setIsEditing] = useState(false);
 
   const [data, setData] = useState({

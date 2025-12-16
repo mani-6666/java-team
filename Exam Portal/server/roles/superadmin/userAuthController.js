@@ -1,8 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
-const pool = require("../config/database");
+const pool = require("../../config/db.js");
 const issueToken = require("../authentication/issueToken");
+
 router.post("/register", async (req, res) => {
   try {
     const { fullName, email, password, organizationId, mobile, gender } = req.body;

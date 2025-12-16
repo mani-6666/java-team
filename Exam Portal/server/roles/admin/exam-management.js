@@ -1,4 +1,4 @@
-const pool = require("../config/db");
+const pool = require("../../config/db");
 const express = require("express");
 
 const router = express.Router();
@@ -8,21 +8,22 @@ const getExamStatus = (startDate, endDate) => {
   startDate = new Date(startDate);
   endDate = new Date(endDate);
 
-  if (startDate > today) return "upcoming";
+  if (startDate > today) return "scheduled";
   if (endDate < today) return "completed";
   return "active";
 };
 
 router.get("/invigilator/search", async (req, res) => {
   try {
-    const { orgId, query } = req.query;
+    const orgId=req.user.organizationId;
+    const {  query } = req.query;
 
     const sql = `
-      SELECT id, name, email 
-      FROM users
-      WHERE organization_id = $1
+      SELECT asi_id, full_name, email 
+      FROM mainexamportal.asi_users
+      WHERE org_id = $1
         AND role = 'invigilator'
-        AND name ILIKE $2
+        AND full_name ILIKE $2
       LIMIT 10;
     `;
 
@@ -59,8 +60,8 @@ router.post("/", async (req, res) => {
     }
 
     const status = getExamStatus(startDate, endDate);
-    const orgId = "ORG001";
-    const createdBy = "bae35228-b803-45f0-b54c-2a7b40b2873d";
+    const orgId = req.user.organizationId;
+    const createdBy = req.user.id;
     await pool.query("BEGIN");
 
     
@@ -76,7 +77,8 @@ router.post("/", async (req, res) => {
         title,
         type,
         duration || 0,
-        "scheduled",
+        status,
+        false,
         invigilatorId || null,
         invigilatorName || null
       ]
@@ -124,15 +126,24 @@ router.post("/", async (req, res) => {
 
 router.get("/", async (req, res) => {
   try {
-    const orgId = "ORG001";
+    const orgId = req.user.organizationId;
 
     const query = `
       SELECT 
         e.*,
-        (SELECT COUNT(*) FROM exam_results er WHERE er.exam_id = e.id) AS attempt_count
-      FROM exams e
-      WHERE e.organization_id = $1 AND e.is_deleted = false
-      ORDER BY e.start_date DESC
+        COALESCE(
+          (SELECT COUNT(*) FROM mainexamportal.exam_attempt er WHERE er.exam_id = e.exam_id),
+          0
+        ) AS attempt_count,
+
+        COALESCE(
+          (SELECT AVG(er.score) FROM mainexamportal.exam_attempt er WHERE er.exam_id = e.exam_id),
+          0
+        ) AS avg_score
+
+      FROM mainexamportal.exams e
+      WHERE e.org_id = $1 AND e.is_deleted = false
+      ORDER BY e.created_at DESC
     `;
 
     const result = await pool.query(query, [orgId]);
@@ -147,16 +158,17 @@ router.get("/", async (req, res) => {
 
 
 
+
 router.get("/:id", async (req, res) => {
   try {
-    const orgId = "ORG001";
+    const orgId = req.user.organizationId;
 
     const result = await pool.query(
       `SELECT 
          e.*,
-         (SELECT COUNT(*) FROM exam_results er WHERE er.exam_id = e.id) AS attempt_count
-       FROM exams e
-       WHERE e.id=$1 AND e.organization_id=$2 AND e.is_deleted=false`,
+         (SELECT COUNT(*) FROM mainexamportal.exam_attempt er WHERE er.exam_id = e.exam_id) AS attempt_count
+       FROM mainexamportal.exams e
+       WHERE e.id=$1 AND e.org_id=$2 AND e.is_deleted=false`,
       [req.params.id, orgId]
     );
 
@@ -189,7 +201,7 @@ router.put("/:id", async (req, res) => {
     }
 
     const result = await pool.query(
-      `UPDATE exams SET
+      `UPDATE mainexamportal.exams SET
          title=$1,
          type=$2,
          description=$3,
@@ -199,7 +211,7 @@ router.put("/:id", async (req, res) => {
          questions=$7
          total_marks=$8,
          status=$9
-       WHERE id=$10 AND organization_id=$11 AND is_deleted=false
+       WHERE id=$10 AND org_id=$11 AND is_deleted=false
        RETURNING *`,
       [
         title,
@@ -229,9 +241,9 @@ router.delete("/:id", async (req, res) => {
     const orgId = req.user.organizationId;
 
     await pool.query(
-      `UPDATE exams 
+      `UPDATE mainexamportal.exams 
        SET is_deleted=true 
-       WHERE id=$1 AND organization_id=$2`,
+       WHERE id=$1 AND org_id=$2`,
       [req.params.id, orgId]
     );
 

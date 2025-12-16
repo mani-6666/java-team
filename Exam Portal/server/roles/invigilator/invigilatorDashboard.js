@@ -1,46 +1,60 @@
 const express = require("express");
-const pool = require("../config/db");
+const pool = require("../../config/db");
 const router = express.Router();
 
-
-// DASHBOARD SUMMARY
+//DASHBOARD SUMMARY
 router.get("/summary", async (req, res) => {
   try {
-    const invigilatorId = req.user.id;       
+    const invigilatorId = req.user.id;
     const organizerId = req.user.organizationId;
 
-    // Pending Review
-    const pending = await pool.query(`
+    // Pending attempts
+    const pending = await pool.query(
+      `
       SELECT COUNT(*)::int AS pending
-      FROM submissions s
-      JOIN exams e ON e.exam_id = s.exam_id
-      WHERE s.status='pending'
-      AND e.assigned_to=$1 AND e.organizer_id=$2
-    `, [invigilatorId, organizerId]);
+      FROM mainexamportal.exam_attempt a
+      JOIN mainexamportal.exams e ON e.exam_id = a.exam_id
+      WHERE a.status = 'submitted'
+        AND e.invigilator_id = $1
+        AND e.org_id = $2
+      `,
+      [invigilatorId, organizerId]
+    );
 
-    // Graded
-    const graded = await pool.query(`
+    // Graded attempts
+    const graded = await pool.query(
+      `
       SELECT COUNT(*)::int AS graded
-      FROM submissions s
-      JOIN exams e ON e.exam_id=s.exam_id
-      WHERE s.status='graded'
-      AND e.assigned_to=$1 AND e.organizer_id=$2
-    `, [invigilatorId, organizerId]);
+      FROM mainexamportal.exam_attempt a
+      JOIN mainexamportal.exams e ON e.exam_id = a.exam_id
+      WHERE a.status = 'evaluated'
+        AND e.invigilator_id = $1
+        AND e.org_id = $2
+      `,
+      [invigilatorId, organizerId]
+    );
 
-    // Total Submissions
-    const total = await pool.query(`
+    //Total attempts
+    const total = await pool.query(
+      `
       SELECT COUNT(*)::int AS total
-      FROM submissions s
-      JOIN exams e ON e.exam_id=s.exam_id
-      WHERE e.assigned_to=$1 AND e.organizer_id=$2
-    `, [invigilatorId, organizerId]);
+      FROM mainexamportal.exam_attempt a
+      JOIN mainexamportal.exams e ON e.exam_id = a.exam_id
+      WHERE e.invigilator_id = $1 AND e.org_id = $2
+      `,
+      [invigilatorId, organizerId]
+    );
 
-    // Exams created by invigilator
-    const examsCreated = await pool.query(`
+    //Exams created
+    const examsCreated = await pool.query(
+      `
       SELECT COUNT(*)::int AS exams_created
-      FROM exams
-      WHERE assigned_to=$1 AND organizer_id=$2
-    `, [invigilatorId, organizerId]);
+      FROM mainexamportal.exams
+      WHERE invigilator_id = $1 AND org_id = $2
+      AND is_deleted=false
+      `,
+      [invigilatorId, organizerId]
+    );
 
     return res.json({
       success: true,
@@ -48,15 +62,13 @@ router.get("/summary", async (req, res) => {
         pending_review: pending.rows[0].pending,
         graded: graded.rows[0].graded,
         total_submissions: total.rows[0].total,
-        exams_created: examsCreated.rows[0].exams_created
-      }
+        exams_created: examsCreated.rows[0].exams_created,
+      },
     });
-
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
-
 
 //RECENT SUBMISSIONS
 router.get("/recent", async (req, res) => {
@@ -64,87 +76,131 @@ router.get("/recent", async (req, res) => {
     const invigilatorId = req.user.id;
     const organizerId = req.user.organizationId;
 
-    const recent = await pool.query(`
-      SELECT 
-        s.submission_id,
-        s.student_name,
-        e.title AS exam_title,
-        s.submitted_at,
-        s.status
-      FROM submissions s
-      JOIN exams e ON e.exam_id=s.exam_id
-      WHERE e.assigned_to=$1 AND e.organizer_id=$2
-      ORDER BY s.submitted_at DESC
-      LIMIT 5
-    `, [invigilatorId, organizerId]);
+    const query = `
+     SELECT 
+         ea.attempt_id,
+         ea.started_at,
+         ea.status,
+         ud.name AS student_name,
+         e.title AS exam_title
+      FROM mainexamportal.exam_attempt ea
+      JOIN mainexamportal.users u 
+      ON u.user_id = ea.user_id
+      JOIN mainexamportal.user_details ud 
+      ON ud.user_id = u.user_id
+      JOIN mainexamportal.exams e 
+      ON e.exam_id = ea.exam_id
+      WHERE e.invigilator_id = $1
+      AND e.org_id = $2
+      AND ea.status = 'submitted'      
+      AND ud.is_deleted = false
+      AND u.is_deleted = false
+      ORDER BY ea.started_at DESC
+      LIMIT 10;
+    `;
 
-    return res.json({ success: true, recent_submissions: recent.rows });
+    const result = await pool.query(query, [invigilatorId, organizerId]);
 
+    return res.json({ success: true, recent_submissions: result.rows });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
 
 
-//  GRADING PROGRESS
+// GRADING PROGRESS
 router.get("/progress", async (req, res) => {
   try {
     const invigilatorId = req.user.id;
     const organizerId = req.user.organizationId;
 
-    const progress = await pool.query(`
+    const query = `
       SELECT
         e.exam_id,
         e.title AS exam_title,
-        COUNT(s.submission_id)::int AS total,
-        COUNT(s.submission_id) FILTER (WHERE s.status='graded')::int AS graded
-      FROM exams e
-      LEFT JOIN submissions s ON s.exam_id = e.exam_id
-      WHERE e.assigned_to=$1 AND e.organizer_id=$2
-      GROUP BY e.exam_id
-      ORDER BY e.exam_id
-    `, [invigilatorId, organizerId]);
+        COUNT(ea.attempt_id)::int AS total_attempts,
+        COUNT(*) FILTER(WHERE ea.status='evaluated'):: int AS graded_attempts
 
-    const formatted = progress.rows.map(item => ({
-      ...item,
-      completion: item.total === 0 
-        ? 0 
-        : Math.round(((item.graded || 0) / item.total) * 100)   // FIXED
-    }));
+      FROM mainexamportal.exams e
+      LEFT JOIN mainexamportal.exam_attempt ea ON ea.exam_id = e.exam_id
+      WHERE e.invigilator_id = $1
+       AND e.org_id = $2
+       AND e.is_deleted=false
+      GROUP BY e.exam_id,e.title
+      ORDER BY e.created_at DESC;
+    `;
+    
+    const {rows}=await pool.query(query,[
+      invigilatorId,
+      organizerId
+    ]);
 
-    return res.json({ success: true, grading_progress: formatted });
+     const progress=rows.map(r=>({
+      exam_title:r.exam_title,
+      graded:r.graded_attempts,
+      total:r.total_attempts,
+      percentage:
+        r.total_attempts === 0
+        ?0
+        :Math.round((r.graded_attempts / r.total_attempts)* 100)
+     }));
+     res.json({
+      success:true,
+      grading_progress:progress
+     });
+    }catch(err)
+    {
+      res.status(500).json({
+        success:false,
+        error:err.message
+      });
+    }
+  });
 
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 
-// GRADING ACTIVITY 
+   // GRADING ACTIVITY 
 router.get("/activity", async (req, res) => {
   try {
     const invigilatorId = req.user.id;
     const organizerId = req.user.organizationId;
 
-    const activity = await pool.query(`
-      SELECT 
-        s.student_name,
+    const query = `
+      SELECT
+        ea.attempt_id,
+        ud.name AS student_name,
         e.title AS exam_title,
-        s.total_marks AS marks,    -- FIXED
-        s.graded_at
-      FROM submissions s
-      JOIN exams e ON e.exam_id=s.exam_id
-      WHERE s.status='graded'
-      AND e.assigned_to=$1 AND e.organizer_id=$2
-      ORDER BY s.graded_at DESC
-      LIMIT 5
-    `, [invigilatorId, organizerId]);
+        ea.total_marks,
+        ea.graded_at
+      FROM mainexamportal.exam_attempt ea
+      JOIN mainexamportal.exams e
+        ON e.exam_id = ea.exam_id
+      JOIN mainexamportal.users u
+        ON u.user_id = ea.user_id
+      JOIN mainexamportal.user_details ud
+        ON ud.user_id = u.user_id
+      WHERE ea.status = 'evaluated'
+        AND ea.graded_by = $1
+        AND e.org_id = $2
+      ORDER BY ea.graded_at DESC
+      LIMIT 5;
+    `;
 
-    return res.json({ success: true, grading_activity: activity.rows });
-
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
+     const { rows }=await pool.query(query,[
+      invigilatorId,
+      organizerId,
+     ])
+     res.json({
+      success:true,
+      grading_activity:rows
+     });
+    }catch(err)
+    {
+      res.status(500).json({
+        success:false,
+        error:err.message
+      });
+    }
+  });
 
 module.exports = router;

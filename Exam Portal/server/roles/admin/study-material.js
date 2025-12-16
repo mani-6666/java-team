@@ -1,66 +1,27 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../config/db");
-const cloudinary = require("cloudinary").v2;
-const multer = require("multer");
-const path = require("path");
+const pool = require("../../config/db.js");
+const admin = require("../../config/firebase.js");   // Firebase Admin SDK
 
 
-cloudinary.config({
-  cloud_name: "dmk31su72",
-  api_key: "257932196178783",
-  api_secret: "sVVFFDBeGolqL22_NRq13JXxhQw"
-});
 
-
-const formatSize = (bytes) => {
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(2) + " MB";
-};
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) =>
-    cb(
-      null,
-      Date.now() + "-" + Math.round(Math.random() * 1e9) + path.extname(file.originalname)
-    )
-});
-
-const upload = multer({ storage });
-
-
-router.post("/", upload.single("file"), async (req, res) => {
+router.post("/", async (req, res) => {
   try {
-    const { title, className, category, type } = req.body;
-    const userId = req.user.id;
+    const { title, category, type, size, fileURL } = req.body;
+
+    const userId = req.user.id;                // from auth middleware
     const orgId = req.user.organizationId;
 
-    if (!req.file) {
-      return res.status(400).json({ message: "File required" });
+    if (!fileURL) {
+      return res.status(400).json({ message: "File URL missing. Upload to Firebase first." });
     }
 
-    
-    const uploaded = await cloudinary.uploader.upload(req.file.path);
-
-    
     const result = await pool.query(
       `INSERT INTO study_materials 
-        (title, class, category, type, file_url, file_size,upload_date, uploaded_by, organization_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        (title, category, type, file_url, file_size, upload_date, uploaded_by, organization_id)
+       VALUES ($1,$2,$3,$4,$5, NOW(), $6, $7)
        RETURNING *`,
-      [
-        title,
-        className,
-        category,
-        type,
-        uploaded.secure_url,
-        formatSize(req.file.size),
-        uploadDate,
-        userId,
-        orgId
-      ]
+      [title, category, type, fileURL, size, userId, orgId]
     );
 
     res.status(201).json({ success: true, data: result.rows[0] });
@@ -70,6 +31,8 @@ router.post("/", upload.single("file"), async (req, res) => {
   }
 });
 
+
+
 router.get("/", async (req, res) => {
   try {
     const orgId = req.user.organizationId;
@@ -78,14 +41,12 @@ router.get("/", async (req, res) => {
       `SELECT 
         sm.id,
         sm.title,
-        sm.class,
         sm.category,
         sm.type,
-        sm.file_url,
-        sm.file_size,
-        sm.download_count,
-        TO_CHAR(sm.upload_date, 'YYYY-MM-DD') AS upload_date,
-        u.name AS uploaded_by
+        sm.file_size AS size,
+        sm.download_count AS downloads,
+        TO_CHAR(sm.upload_date, 'YYYY-MM-DD') AS "date",
+        u.name AS "uploadedBy"
        FROM study_materials sm
        JOIN users u ON u.id = sm.uploaded_by
        WHERE sm.organization_id = $1 AND sm.is_deleted = false
@@ -101,6 +62,7 @@ router.get("/", async (req, res) => {
 });
 
 
+
 router.get("/download/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -108,32 +70,34 @@ router.get("/download/:id", async (req, res) => {
     await pool.query(
       `UPDATE study_materials 
        SET download_count = download_count + 1 
-       WHERE id = $1`,
+       WHERE id=$1`,
       [id]
     );
 
-    const file = await pool.query(
+    const result = await pool.query(
       `SELECT file_url FROM study_materials WHERE id=$1`,
       [id]
     );
 
-    res.json({ success: true, url: file.rows[0].file_url });
+    res.json({ success: true, url: result.rows[0].file_url });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+
+
 router.put("/:id", async (req, res) => {
   try {
-    const { title, className, category, type } = req.body;
+    const { title, category, type } = req.body;
 
     const result = await pool.query(
       `UPDATE study_materials SET
-        title=$1, class=$2, category=$3, type=$4
-       WHERE id=$5 AND is_deleted=false
+        title=$1, category=$2, type=$3
+       WHERE id=$4 AND is_deleted=false
        RETURNING *`,
-      [title, className, category, type, req.params.id]
+      [title, category, type, req.params.id]
     );
 
     res.json({ success: true, data: result.rows[0] });
@@ -144,13 +108,38 @@ router.put("/:id", async (req, res) => {
 });
 
 
+
+
+
+
 router.delete("/:id", async (req, res) => {
   try {
+    const id = req.params.id;
+
+    // Get file URL to delete from Firebase
+    const result = await pool.query(
+      `SELECT file_url FROM study_materials WHERE id=$1`,
+      [id]
+    );
+
+    const fileURL = result.rows[0]?.file_url;
+
+    // OPTIONAL: delete from Firebase Storage
+    if (fileURL) {
+      const bucket = admin.storage().bucket();
+      const fileName = decodeURIComponent(fileURL.split("/o/")[1].split("?")[0]);
+
+      try {
+        await bucket.file(fileName).delete();
+      } catch (err) {
+        console.log("Firebase delete failed (ignored):", err.message);
+      }
+    }
+
+    // Soft delete in DB
     await pool.query(
-      `UPDATE study_materials 
-       SET is_deleted=true 
-       WHERE id=$1`,
-      [req.params.id]
+      `UPDATE study_materials SET is_deleted=true WHERE id=$1`,
+      [id]
     );
 
     res.json({ success: true, message: "Material deleted" });
@@ -159,5 +148,6 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 module.exports = router;

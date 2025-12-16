@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Send, MoreHorizontal, ChevronDown, Paperclip } from "lucide-react";
 
-export default function MessagesPage() {
+export default function Superadmin_Chatbox() {
   const tabs = ["All", "Pending", "InProgress", "Resolved", "Closed"];
   const [activeTab, setActiveTab] = useState("All");
 

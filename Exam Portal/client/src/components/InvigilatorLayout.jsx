@@ -14,7 +14,7 @@
 
 // import InvProfile from "../Pages/InvProfile";
 
-// export default function InvLayout({ children }) {
+// export default funcigilatorLayout({ children }) {
 //   const location = useLocation();
 
 //   // ⭐ Load dark mode from localStorage
@@ -191,7 +191,7 @@
 
 
 import React, { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   LayoutDashboard,
@@ -201,11 +201,12 @@ import {
   MessageCircle,
   LogOut,
 } from "lucide-react";
+import InvigilatorProfile from "../roles/invigilator/InvigilatorProfile";
 
-import InvProfile from "../Pages/InvProfile";
 
-export default function InvLayout({ children }) {
+export default function InvigilatorLayout({ children }) {
   const location = useLocation();
+  const navigate = useNavigate();
 
   // ⭐ Load dark mode from localStorage
   const [darkMode, setDarkMode] = useState(() => {
@@ -224,6 +225,11 @@ export default function InvLayout({ children }) {
     location.pathname === path
       ? "bg-[#E8EEFF] text-blue-600"
       : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#2f3237]";
+
+  const handleLogout = ()=>{
+    sessionStorage.clear()
+    navigate('/login')
+  }
 
   return (
     <div className={darkMode ? "dark" : ""}>
@@ -295,9 +301,9 @@ export default function InvLayout({ children }) {
           >
             <nav className="flex flex-col gap-2">
               <Link
-                to="/invigilatordashboard"
+                to="/invigilator/dashboard"
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all ${active(
-                  "/invigilatordashboard"
+                  "/invigilator/dashboard"
                 )}`}
               >
                 <LayoutDashboard size={18} />
@@ -305,9 +311,9 @@ export default function InvLayout({ children }) {
               </Link>
 
               <Link
-                to="/submission"
+                to="/invigilator/submission"
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${active(
-                  "/submission"
+                  "/invigilator/submission"
                 )}`}
               >
                 <FileText size={18} />
@@ -315,9 +321,9 @@ export default function InvLayout({ children }) {
               </Link>
 
               <Link
-                to="/gradingqueue"
+                to="/invigilator/grading-queue"
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${active(
-                  "/gradingqueue"
+                  "/invigilator/grading-queue"
                 )}`}
               >
                 <ClipboardList size={18} />
@@ -325,9 +331,9 @@ export default function InvLayout({ children }) {
               </Link>
 
               <Link
-                to="/analytics"
+                to="/invigilator/analytics"
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${active(
-                  "/analytics"
+                  "/invigilator/analytics"
                 )}`}
               >
                 <BarChart2 size={18} />
@@ -335,9 +341,9 @@ export default function InvLayout({ children }) {
               </Link>
 
               <Link
-                to="/chatbox"
+                to="/invigilator/chatbox"
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${active(
-                  "/chatbox"
+                  "/invigilator/chatbox"
                 )}`}
               >
                 <MessageCircle size={18} />
@@ -348,7 +354,7 @@ export default function InvLayout({ children }) {
             {/* LOGOUT */}
             <div className="absolute bottom-6 left-4">
               <button
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-[#2f3237]">
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-[#2f3237]" onClick={handleLogout}>
                 <LogOut size={18} />
                 Logout
               </button>
@@ -365,7 +371,7 @@ export default function InvLayout({ children }) {
         </div>
 
         {/* PROFILE MODAL */}
-        {showProfile && <InvProfile onClose={() => setShowProfile(false)} />}
+        {showProfile && <InvigilatorProfile onClose={() => setShowProfile(false)} />}
       </div>
     </div>
   );

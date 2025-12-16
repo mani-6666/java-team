@@ -1,7 +1,6 @@
-import UserLayout from "../usercomponents/UserLayout";
-import { useState, useEffect, useMemo } from "react";
-import axios from "axios";
+import { useState, useMemo } from "react";
 import { FileText, Search, ChevronDown, ChevronUp } from "lucide-react";
+import UserLayout from "../../components/UserLayout";
 
 const categoryFilters = [
   "Materials",
@@ -71,9 +70,7 @@ function MaterialRow({ material }) {
   );
 }
 
-export default function StudyMaterials() {
-  const BASE_URL = "http://localhost:5000/api/user";
-
+export default function UserStudyMaterials() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Materials");
   const [dropdown, setDropdown] = useState(false);

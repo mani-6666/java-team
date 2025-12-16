@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import axios from "axios";
 import { PlusCircle, Search, Edit, Trash, X, Plus } from "lucide-react";
 
-export default function superadmin_SubscriptionManagement() {
+export default function Superadmin_SubscriptionManagement() {
   const API_BASE = "http://localhost:5000/superadmin/subscriptions";
 
   const [plans, setPlans] = useState([]);

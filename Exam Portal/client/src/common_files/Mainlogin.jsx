@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-
+import axios from "axios"
+import { useNavigate } from "react-router-dom"
+import { baseUrl } from '../App';
 export default function Mainlogin() {
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -35,13 +38,32 @@ export default function Mainlogin() {
     return newErrors;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const validationErrors = validate();
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length === 0) {
-      alert("Login Successful!");
-      setFormData({ email: "", password: "" });
+      try {
+        const response = await axios.post(`${baseUrl}/auth/login`, { email: formData.email, password: formData.password, loginType:sessionStorage.getItem("role") ? "" :"asi"})
+        console.log(response,"res")
+        if (response.status === 200) {
+          if (response?.data?.user?.role === "invigilator") {
+            navigate("/invigilator/dashboard")
+          } else if (response?.data?.user?.role === "admin") {
+            navigate("/admin/dashboard")
+          } else if (response?.data?.user?.role === "superadmin") {
+            navigate("/super-admin/dashboard")
+          } else {
+            navigate("/user/dashboard")
+          }
+          if(!sessionStorage.getItem("role")) sessionStorage.setItem("role", "user")
+          sessionStorage.setItem("token", response?.data?.token)
+        }
+        setFormData({ email: "", password: "" });
+      } catch (error) {
+        console.log(error)
+      }
+
     }
   };
 
