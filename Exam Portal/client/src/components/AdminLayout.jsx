@@ -772,6 +772,9 @@ export default function AdminLayout({ children }) {
     { id: "/admin/chat", label: "Chatbox", icon: <MessageSquare size={20} /> },
   ];
 
+  const handleLogout = ()=>{
+    sessionStorage.clear()
+  }
   return (
     <div
       className={`min-h-screen flex overflow-hidden ${
@@ -819,8 +822,10 @@ export default function AdminLayout({ children }) {
           ))}
         </div>
 
-        <div className="mt-auto pt-6 border-t dark:border-gray-700">
-          <button className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-red-600">
+        <div className="mt-auto pt-6 border-t border-gray-300/60 dark:border-gray-700/60">
+          <button
+            className="flex items-center gap-2 text-[15px] font-medium text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition"
+          onClick={handleLogout}>
             <LogOut size={18} />
             Logout
           </button>

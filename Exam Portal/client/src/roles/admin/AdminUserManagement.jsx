@@ -1,6 +1,10 @@
-import React, { useState, useMemo, useEffect } from "react";
-import AdminLayout from "../adminComponents/AdminLayout";
-import { Search, Eye, Trash2, X } from "lucide-react";
+
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import AdminLayout from "../../components/AdminLayout";
+import { Search, Eye, Trash2 } from "lucide-react";
+
+const API = "http://localhost:5000/admin/users";
 
 export default function AdminUserManagement() {
   const [search, setSearch] = useState("");

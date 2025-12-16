@@ -1,6 +1,6 @@
-// src/adminPages/AdminStudyMaterials.jsx
-import React, { useEffect, useState } from "react";
-import AdminLayout from "../adminComponents/AdminLayout";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import AdminLayout from "../../components/AdminLayout";
 import { Upload, Trash2, Edit, X, Download } from "lucide-react";
 import { storage } from "../firebase";
 import {

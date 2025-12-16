@@ -1,6 +1,3 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
-import UserLayout from "../usercomponents/UserLayout";
 import {
   ResponsiveContainer,
   LineChart,
@@ -10,6 +7,7 @@ import {
   Tooltip
 } from "recharts";
 import { FileText, TrendingUp, Trophy, BookOpen } from "lucide-react";
+import UserLayout from "../../components/UserLayout";
 
 function StatCard({ icon: Icon, value, label, helper }) {
   return (
@@ -37,129 +35,7 @@ function ExamTag({ label }) {
   );
 }
 
-function formatDateLabel(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function formatDate(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  return d.toLocaleDateString("en-GB");
-}
-
-function formatTime(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
-
-export default function Dashboard() {
-  const BASE_URL = "http://localhost:5000/api/user";
-
-  const [overview, setOverview] = useState({
-    totalExams: 0,
-    activeExams: 0,
-    attemptedExams: 0,
-    remainingExams: 0,
-    averageScore: 0,
-    studyMaterials: 0
-  });
-
-  const [performanceData, setPerformanceData] = useState([]);
-  const [upcomingExams, setUpcomingExams] = useState([]);
-  const [achievements, setAchievements] = useState([]);
-
-  async function loadOverview() {
-    try {
-      const res = await axios.get(`${BASE_URL}/dashboard/overview`);
-      const d = res.data?.data || {};
-      setOverview({
-        totalExams: Number(d.totalExams || 0),
-        activeExams: Number(d.activeExams || 0),
-        attemptedExams: Number(d.attemptedExams || 0),
-        remainingExams: Number(d.remainingExams || 0),
-        averageScore: Number(d.averageScore || 0),
-        studyMaterials: Number(d.studyMaterials || 0)
-      });
-    } catch (err) {
-      console.error("OVERVIEW API ERROR:", err);
-      setOverview({
-        totalExams: 0,
-        activeExams: 0,
-        attemptedExams: 0,
-        remainingExams: 0,
-        averageScore: 0,
-        studyMaterials: 0
-      });
-    }
-  }
-
-  async function loadPerformance() {
-    try {
-      const res = await axios.get(`${BASE_URL}/dashboard/performance`);
-      const list = res.data?.data || [];
-      const mapped = list.map((row) => ({
-        day: formatDateLabel(row.date),
-        score: Number(row.avg_score || 0)
-      }));
-      setPerformanceData(mapped);
-    } catch (err) {
-      console.error(err);
-      setPerformanceData([]);
-    }
-  }
-
-  async function loadUpcomingExams() {
-    try {
-      const res = await axios.get(`${BASE_URL}/dashboard/upcoming-exams`);
-      const list = res.data?.data || [];
-      const mapped = list.map((exam) => ({
-        id: exam.id,
-        name: exam.title,
-        date: formatDate(exam.start_time),
-        time: formatTime(exam.start_time),
-        tag: exam.examMode || "MCQs"
-      }));
-      setUpcomingExams(mapped);
-    } catch (err) {
-      console.error(err);
-      setUpcomingExams([]);
-    }
-  }
-
-  async function loadAchievements() {
-    try {
-      const res = await axios.get(`${BASE_URL}/dashboard/achievements`);
-      const list = res.data?.data || [];
-      const mapped = list.map((a) => ({
-        id: a.id,
-        title: a.title,
-        description: a.description,
-        date: formatDate(a.created_at || a.createdAt || a.date)
-      }));
-      setAchievements(mapped);
-    } catch (err) {
-      console.error(err);
-      setAchievements([]);
-    }
-  }
-
-  useEffect(() => {
-    loadOverview();
-    loadPerformance();
-    loadUpcomingExams();
-    loadAchievements();
-  }, []);
-
-  const stats = [
-    { id: 1, label: "Total Exams", value: overview.totalExams, description: `${overview.activeExams} currently active`, icon: FileText },
-    { id: 2, label: "Attempted", value: overview.attemptedExams, description: `${overview.remainingExams} remaining`, icon: Trophy },
-    { id: 3, label: "Average Score", value: `${overview.averageScore}%`, description: "Across all attempts", icon: TrendingUp },
-    { id: 4, label: "Study Materials", value: overview.studyMaterials, description: "Available resources", icon: BookOpen }
-  ];
-
+export default function UserDashboard() {
   return (
     <UserLayout>
       <div className="w-full min-h-[calc(100vh-4rem)] bg-gray-50 dark:bg-[#0D1117] text-gray-900 dark:text-white">

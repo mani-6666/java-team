@@ -1,7 +1,5 @@
-import UserLayout from "../usercomponents/UserLayout";
-import { useEffect, useState, useMemo } from "react";
-import axios from "axios";
 import { Trophy } from "lucide-react";
+import UserLayout from "../../components/UserLayout";
 
 function StatusBadge({ status }) {
   const base =
@@ -30,37 +28,7 @@ function AchievementIcon({ status }) {
   );
 }
 
-export default function Achievements() {
-  const BASE = "http://localhost:5000/api/user";
-
-  const [summary, setSummary] = useState({
-    totalAchievements: 0,
-    unlocked: 0,
-    locked: 0,
-  });
-
-  const [recent, setRecent] = useState([]);
-
-  async function loadAchievementsOverview() {
-    try {
-      const res = await axios.get(`${BASE}/achievements/overview`);
-      const d = res.data?.data;
-      if (!d) return;
-
-      setSummary(d.stats);
-      setRecent(d.recentAchievements);
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  useEffect(() => {
-    loadAchievementsOverview();
-  }, []);
-
-  const memoRecent = useMemo(() => recent, [recent]);
-  const memoSummary = useMemo(() => summary, [summary]);
-
+export default function UserAchievements() {
   return (
     <UserLayout>
       <div className="min-h-screen bg-gray-50 dark:bg-[#0B1222] px-1 sm:px-3 py-2 mt-[-14px]">

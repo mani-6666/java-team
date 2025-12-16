@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   Menu,
@@ -39,6 +39,7 @@ export default function UserLayout({ children }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const navigate = useNavigate();
 
   const location = useLocation();
   const fileInputRef = useRef(null);
@@ -78,12 +79,12 @@ export default function UserLayout({ children }) {
   ];
 
   const menu = [
-    { label: "Dashboard", icon: LayoutDashboard, path: "/" },
-    { label: "My Exam", icon: FileText, path: "/exams" },
-    { label: "Study Materials", icon: BookOpen, path: "/study-materials" },
-    { label: "Analytics", icon: BarChart2, path: "/analytics" },
-    { label: "Achievements", icon: Trophy, path: "/achievements" },
-    { label: "Chatbox", icon: MessageCircle, path: "/chatbox" },
+    { label: "Dashboard", icon: LayoutDashboard, path: "/user/dashboard" },
+    { label: "My Exam", icon: FileText, path: "/user/exams" },
+    { label: "Study Materials", icon: BookOpen, path: "/user/study-materials" },
+    { label: "Analytics", icon: BarChart2, path: "/user/analytics" },
+    { label: "Achievements", icon: Trophy, path: "/user/achievements" },
+    { label: "Chatbox", icon: MessageCircle, path: "/user/chatbox" },
   ];
 
   const [profile, setProfile] = useState({
@@ -110,6 +111,11 @@ export default function UserLayout({ children }) {
     setProfile(draft);
     setIsEditingProfile(false);
   };
+
+  const handleLogout = ()=>{
+    sessionStorage.clear()
+    navigate('/login')
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-[#0D1117]">
@@ -145,7 +151,7 @@ export default function UserLayout({ children }) {
         </nav>
 
         <div className="px-4 py-4 mt-auto mb-2">
-          <button className="flex items-center gap-3 w-full text-sm px-3 py-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+          <button className="flex items-center gap-3 w-full text-sm px-3 py-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={handleLogout}>
             <LogOut size={18} /> Logout
           </button>
         </div>

@@ -1,6 +1,4 @@
-import UserLayout from "../usercomponents/UserLayout";
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -9,34 +7,86 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { Calendar } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import UserLayout from "../../components/UserLayout";
 
-const SUBJECT_COLORS = [
-  "#C7D2FE",
-  "#4F46E5",
-  "#E5E7EB",
-  "#EF4444",
-  "#3B82F6",
-  "#10B981",
-  "#EAB308",
-];
+const MemoSubscriberChart = React.memo(({ data }) => (
+  <ResponsiveContainer width="100%" height={260}>
+    <BarChart data={data} margin={{ top: 10, right: 20, left: -20, bottom: 5 }}>
+      <XAxis
+        dataKey="name"
+        tickLine={false}
+        axisLine={false}
+        tick={{ fill: "#6B7280", fontSize: 12 }}
+      />
+      <YAxis
+        domain={[0, 100]}
+        ticks={[0, 20, 40, 60, 80, 100]}
+        tickLine={false}
+        axisLine={false}
+        tick={{ fill: "#9CA3AF", fontSize: 11 }}
+      />
+      <Bar dataKey="value" fill="#4F46E5" radius={[6, 6, 0, 0]} barSize={45} />
+    </BarChart>
+  </ResponsiveContainer>
+));
 
-const MemoSubscriberChart = React.memo(({ data }) => {
-  if (!data || data.length === 0) {
-    return (
-      <div className="w-full h-[260px] flex items-center justify-center text-gray-500">
-        No assessment data yet
-      </div>
-    );
-  }
-  return (
-    <ResponsiveContainer width="100%" height={260}>
-      <BarChart data={data} margin={{ top: 10, right: 20, left: -20, bottom: 5 }}>
-        <XAxis dataKey="name" tickLine={false} axisLine={false} />
-        <YAxis domain={[0, 100]} tickLine={false} axisLine={false} />
-        <Bar dataKey="value" fill="#4F46E5" radius={[6, 6, 0, 0]} barSize={45} />
-      </BarChart>
-    </ResponsiveContainer>
+const MemoSubjectChart = React.memo(({ data }) => (
+  <ResponsiveContainer width="100%" height={260}>
+    <BarChart data={data} margin={{ top: 10, right: 20, left: -20, bottom: 5 }}>
+      <XAxis
+        dataKey="name"
+        tickLine={false}
+        axisLine={false}
+        tick={{ fill: "#6B7280", fontSize: 12 }}
+      />
+      <YAxis
+        domain={[0, 100]}
+        ticks={[0, 20, 40, 60, 80, 100]}
+        tickLine={false}
+        axisLine={false}
+        tick={{ fill: "#9CA3AF", fontSize: 11 }}
+      />
+      <Bar
+        dataKey="value"
+        radius={[6, 6, 0, 0]}
+        barSize={45}
+        label={({ x, y, width, index }) => (
+          <text
+            x={x + width / 2}
+            y={y - 4}
+            fill={data[index].labelColor}
+            textAnchor="middle"
+            fontSize="11"
+            fontWeight="500"
+          >
+            {data[index].label}
+          </text>
+        )}
+      >
+        {data.map((entry, idx) => (
+          <Cell key={idx} fill={entry.color} />
+        ))}
+      </Bar>
+    </BarChart>
+  </ResponsiveContainer>
+));
+
+export default function UserAnalytics() {
+  const [subscriberPeriod, setSubscriberPeriod] = useState("3 Months");
+  const [openPeriod, setOpenPeriod] = useState(false);
+
+  const subscriberOptions = ["3 Months", "6 Months", "1 Year"];
+
+  const subscriberData = useMemo(
+    () => [
+      { name: "Mathematics", value: 60 },
+      { name: "CSE", value: 95 },
+      { name: "Physics", value: 78 },
+      { name: "Chemistry", value: 85 },
+      { name: "Physics Lab", value: 68 },
+    ],
+    []
   );
 });
 

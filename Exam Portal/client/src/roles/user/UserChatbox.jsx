@@ -1,8 +1,8 @@
-import UserLayout from "../usercomponents/UserLayout";
 import { useState, useEffect, useRef } from "react";
 import { Send, ChevronDown, ArrowLeft, Paperclip } from "lucide-react";
+import UserLayout from "../../components/UserLayout";
 
-export default function Chatbox() {
+export default function UserChatbox() {
   const [selectedChat, setSelectedChat] = useState(0);
   const [newMessage, setNewMessage] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");

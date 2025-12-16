@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const bcrypt = require("bcryptjs");
-const pool = require("../config/db");   // ✅ Correct import
+const pool = require("../../config/db.js");
 const issueToken = require("../authentication/issueToken"); // ✅ Correct import
 
 

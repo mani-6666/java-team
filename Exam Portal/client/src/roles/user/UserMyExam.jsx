@@ -1,7 +1,6 @@
-import UserLayout from "../usercomponents/UserLayout";
-import { useState, useEffect } from "react";
-import axios from "axios";
+import { useState } from "react";
 import { Clock, FileText, Play, ChevronDown, ChevronUp } from "lucide-react";
+import UserLayout from "../../components/UserLayout";
 
 const filter1Options = ["All", "Name", "Date", "Type", "Status"];
 
@@ -99,10 +98,7 @@ function ExamCard({ exam }) {
   );
 }
 
-export default function MyExam() {
-  const BASE_URL = "http://localhost:5000/api/user";
-
-  const [exams, setExams] = useState([]);
+export default function UserMyExam() {
   const [filter1, setFilter1] = useState("All");
   const [filter2, setFilter2] = useState("");
   const [open1, setOpen1] = useState(false);

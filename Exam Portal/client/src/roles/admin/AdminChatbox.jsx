@@ -461,12 +461,13 @@
 
 
 import React, { useState, useRef, useEffect } from "react";
-import AdminLayout from "../adminComponents/AdminLayout";
-import { Send, ChevronDown, Paperclip, FileText } from "lucide-react";
-import io from "socket.io-client";
-
-const SOCKET_URL = "http://localhost:5000";
-const API_BASE = "http://localhost:5000/api/chat";
+import {
+  Send,
+  ChevronDown,
+  Paperclip,
+  FileText,
+} from "lucide-react";
+import AdminLayout from "../../components/AdminLayout";
 
 export default function AdminChatbox() {
   const [sessions, setSessions] = useState([]);

@@ -1,4 +1,4 @@
-const pool = require("../config/db");
+const pool = require("../../config/db");
 
 const createQuestions = async (req, res) => {
 
@@ -9,7 +9,6 @@ const createQuestions = async (req, res) => {
       return res.status(400).json({ message: "Exam ID and questions required" });
     }
 
-    // CHECK EXAM EXISTS
     const examResult = await pool.query(
       "SELECT type FROM mainexamportal.exams WHERE exam_id = $1",
       [examId]
@@ -30,7 +29,6 @@ const createQuestions = async (req, res) => {
     const insertedQuestions = [];
 
     for (let q of questions) {
-      // BASIC VALIDATION
       if (!q.type || !q.questionText) {
         return res.status(400).json({ message: "Every question needs type & text" });
       }

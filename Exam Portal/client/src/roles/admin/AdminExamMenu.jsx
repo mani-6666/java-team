@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import AdminLayout from "../adminComponents/AdminLayout";
-import { Eye, Pencil, Trash2, X, CalendarDays } from "lucide-react";
+import AdminLayout from "../../components/AdminLayout";
+import {
+  Eye,
+  Pencil,
+  Trash2,
+  Plus,
+  FileText,
+  BarChart3,
+  Calendar,
+} from "lucide-react";
 
-const API_BASE = "http://localhost:5000/admin/exams";
+const API_BASE = "/api/exams";
 
 export default function AdminExamMenu() {
   const navigate = useNavigate();
