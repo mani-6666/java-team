@@ -1,26 +1,13 @@
 import UserLayout from "../usercomponents/UserLayout";
-import { useState, useEffect, useMemo } from "react";
-import axios from "axios";
+import { useState, useMemo, useEffect } from "react";
 import { FileText, Search, ChevronDown, ChevronUp } from "lucide-react";
+import axios from "axios";
 
-const categoryFilters = [
-  "Materials",
-  "Model Question Paper",
-  "Test Paper",
-  "Mock Test Paper",
-  "Lab Manual"
-];
+const API_BASE = "http://localhost:5000/api/user";
 
-function MaterialRow({ material }) {
-  const handleViewPDF = () => window.open(material.viewUrl, "_blank");
-
+function MaterialRow({ material, activeFilter, onView }) {
   return (
-    <div className="
-      flex flex-col md:flex-row md:items-center justify-between gap-4
-      bg-white dark:bg-[#0F1216]
-      border border-gray-200 dark:border-gray-700
-      rounded-xl px-5 py-4 shadow-sm
-    ">
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-[#0F1216] border border-gray-200 dark:border-gray-700 rounded-xl px-5 py-4 shadow-sm">
       <div className="flex gap-4 items-start">
         <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center">
           <FileText size={20} className="text-blue-600" />
@@ -37,32 +24,22 @@ function MaterialRow({ material }) {
 
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px]">
             <span className="text-gray-700 dark:text-gray-300 font-medium">
-              {material.material_type}
+              {activeFilter === "Materials" ? material.type : activeFilter}
             </span>
-
             <span className="w-1 h-1 rounded-full bg-gray-400" />
-
             <span className="px-2 py-[2px] rounded-md bg-red-500 text-white text-[11px]">
               PDF
             </span>
-
             <span className="w-1 h-1 rounded-full bg-gray-400" />
-
             <span className="text-gray-500 dark:text-gray-400">
-              {material.file_size_mb} MB
-            </span>
-
-            <span className="w-1 h-1 rounded-full bg-gray-400" />
-
-            <span className="text-gray-500 dark:text-gray-400">
-              Uploaded: {material.uploaded_at?.slice(0, 10)}
+              Uploaded: {new Date(material.uploadedOn).toLocaleDateString()}
             </span>
           </div>
         </div>
       </div>
 
       <button
-        onClick={handleViewPDF}
+        onClick={() => onView(material.id)}
         className="w-full md:w-auto px-5 h-10 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
       >
         View
@@ -72,46 +49,82 @@ function MaterialRow({ material }) {
 }
 
 export default function StudyMaterials() {
-  const BASE_URL = "http://localhost:5000/api/user";
-
+  const [materials, setMaterials] = useState([]);
+  const [categories, setCategories] = useState(["Materials"]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Materials");
   const [dropdown, setDropdown] = useState(false);
-  const [materials, setMaterials] = useState([]);
-
-  async function loadMaterials() {
-    try {
-      const params = {};
-
-      if (search.trim()) params.search = search.trim();
-      if (categoryFilter !== "Materials") params.dropdown = categoryFilter;
-
-      const res = await axios.get(`${BASE_URL}/materials`, { params });
-
-      const list = res.data?.data || []; 
-      setMaterials(list);
-
-    } catch (err) {
-      console.error(err);
-      setMaterials([]);
-    }
-  }
 
   useEffect(() => {
-    const delay = setTimeout(() => loadMaterials(), 300);
-    return () => clearTimeout(delay);
-  }, [search, categoryFilter]);
+    fetchCategories();
+    }, []);
 
-  const filteredMaterials = useMemo(() => materials, [materials]);
+  useEffect(() => {
+    fetchMaterials();
+  }, [categoryFilter]);
+
+  const fetchMaterials = async () => {
+    try {
+      const url =
+        categoryFilter === "Materials"
+          ? `${API_BASE}/study-materials`
+          : `${API_BASE}/study-materials?category=${encodeURIComponent(
+              categoryFilter
+            )}`;
+
+      const res = await axios.get(url, { withCredentials: true });
+
+      if (res.data.success) {
+        setMaterials(res.data.data);
+      } else {
+        setMaterials([]);
+      }
+    } catch (err) {
+      console.error("Study materials error:", err);
+      setMaterials([]);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get(
+        `${API_BASE}/study-materials/categories`,
+        { withCredentials: true }
+      );
+
+      if (res.data.success) {
+        setCategories(["Materials", ...res.data.data]);
+      }
+    } catch (err) {
+      console.error("Category fetch error:", err);
+    }
+  };
+
+  const fetchSingleMaterial = async (id) => {
+    try {
+      const res = await axios.get(
+        `${API_BASE}/study-materials/${id}`,
+        { withCredentials: true }
+      );
+     if (res.data.success && res.data.data.fileUrl) {
+      window.open(res.data.data.fileUrl, "_blank");
+    }
+
+    } catch (err) {
+      console.error("View material error:", err);
+    }
+  };
+
+  const filteredMaterials = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return materials.filter(
+      (m) => !term || m.title.toLowerCase().includes(term)
+    );
+  }, [materials, search]);
 
   return (
     <UserLayout>
-      <div className="
-        w-full min-h-screen 
-        bg-gray-50 dark:bg-[#0B0F14]
-        px-2 sm:px-4 
-        pt-1 pb-6
-      ">
+      <div className="w-full min-h-screen bg-gray-50 dark:bg-[#0B0F14] px-2 sm:px-4 pt-1 pb-6">
         <div className="max-w-6xl mx-auto space-y-6">
 
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -119,14 +132,12 @@ export default function StudyMaterials() {
               <h1 className="text-[26px] font-semibold text-gray-900 dark:text-white">
                 Study Materials
               </h1>
-
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Access learning resources provided by your organization
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-
               <div className="relative flex-1 min-w-[200px]">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                   <Search size={16} />
@@ -137,34 +148,23 @@ export default function StudyMaterials() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by title"
-                  className="
-                    w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300
-                    bg-white dark:bg-gray-900 text-sm
-                    outline-none focus:ring-2 focus:ring-blue-500
-                  "
+                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-200"
                 />
               </div>
 
               <div className="relative">
                 <button
                   onClick={() => setDropdown(!dropdown)}
-                  className="
-                    px-4 py-2 rounded-lg border border-gray-300 
-                    bg-white dark:bg-gray-900 text-sm min-w-[150px]
-                    flex items-center justify-between
-                  "
+                  className="px-4 py-2 rounded-lg border border-gray-300 bg-white dark:bg-gray-900 text-sm min-w-[150px] flex items-center justify-between text-gray-900 dark:text-gray-200"
                 >
                   {categoryFilter}
                   {dropdown ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </button>
 
                 {dropdown && (
-                  <div className="
-                    absolute right-0 mt-2 w-52 bg-white dark:bg-gray-900 
-                    border border-gray-200 rounded-lg shadow-lg z-50 py-1
-                  ">
-                    {categoryFilters
-                      .filter((f) => f !== categoryFilter)
+                  <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-gray-900 border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                    {categories
+                      .filter((c) => c !== categoryFilter)
                       .map((option) => (
                         <button
                           key={option}
@@ -172,7 +172,7 @@ export default function StudyMaterials() {
                             setCategoryFilter(option);
                             setDropdown(false);
                           }}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                          className="w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
                           {option}
                         </button>
@@ -180,7 +180,6 @@ export default function StudyMaterials() {
                   </div>
                 )}
               </div>
-
             </div>
           </div>
 
@@ -191,7 +190,12 @@ export default function StudyMaterials() {
               </div>
             ) : (
               filteredMaterials.map((m) => (
-                <MaterialRow key={m.id} material={m} />
+                <MaterialRow
+                  key={m.id}
+                  material={m}
+                  activeFilter={categoryFilter}
+                  onView={fetchSingleMaterial}
+                />
               ))
             )}
           </div>
@@ -201,3 +205,5 @@ export default function StudyMaterials() {
     </UserLayout>
   );
 }
+
+

@@ -9,32 +9,25 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { Calendar } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
 
-const SUBJECT_COLORS = [
-  "#C7D2FE",
-  "#4F46E5",
-  "#E5E7EB",
-  "#EF4444",
-  "#3B82F6",
-  "#10B981",
-  "#EAB308",
-];
+const API_BASE = "http://localhost:5000/api/user";
 
 const MemoSubscriberChart = React.memo(({ data }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="w-full h-[260px] flex items-center justify-center text-gray-500">
-        No assessment data yet
+      <div className="h-[260px] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+        No exams found for selected period
       </div>
     );
   }
+
   return (
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={data} margin={{ top: 10, right: 20, left: -20, bottom: 5 }}>
-        <XAxis dataKey="name" tickLine={false} axisLine={false} />
+        <XAxis dataKey="subject" tickLine={false} axisLine={false} />
         <YAxis domain={[0, 100]} tickLine={false} axisLine={false} />
-        <Bar dataKey="value" fill="#4F46E5" radius={[6, 6, 0, 0]} barSize={45} />
+        <Bar dataKey="averageScore" fill="#4F46E5" radius={[6, 6, 0, 0]} barSize={45} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -43,19 +36,20 @@ const MemoSubscriberChart = React.memo(({ data }) => {
 const MemoSubjectChart = React.memo(({ data }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="w-full h-[260px] flex items-center justify-center text-gray-500">
-        No performance data yet
+      <div className="h-[260px] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+        Select date range and click Apply to view performance
       </div>
     );
   }
+
   return (
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={data} margin={{ top: 10, right: 20, left: -20, bottom: 5 }}>
         <XAxis dataKey="name" tickLine={false} axisLine={false} />
         <YAxis domain={[0, 100]} tickLine={false} axisLine={false} />
         <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={45}>
-          {data.map((entry, idx) => (
-            <Cell key={idx} fill={entry.color} />
+          {data.map((_, i) => (
+            <Cell key={i} fill="#4F46E5" />
           ))}
         </Bar>
       </BarChart>
@@ -64,132 +58,112 @@ const MemoSubjectChart = React.memo(({ data }) => {
 });
 
 export default function Analytics() {
-  const API = "http://localhost:5000/api/user";
-  const userId = 1;
-  const orgId = null;
-  const period = "6months";
-
-  const [summary, setSummary] = useState({});
-  const [performance, setPerformance] = useState({});
-  const [ranks, setRanks] = useState({});
-  const [examChart, setExamChart] = useState([]);
-  const [subjectChart, setSubjectChart] = useState([]);
-
+  const [period, setPeriod] = useState("6 Months");
+  const [openPeriod, setOpenPeriod] = useState(false);
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
   const [dateRange, setDateRange] = useState({ from: "", to: "" });
 
-  const safe = (v) => (v === undefined || v === null || v === "" ? 0 : v);
+  const [summary, setSummary] = useState(null);
+  const [metrics, setMetrics] = useState(null);
+  const [ranks, setRanks] = useState(null);
+  const [examChart, setExamChart] = useState([]);
+  const [subjectChart, setSubjectChart] = useState([]);
 
-  async function loadSummary() {
-    try {
-      const res = await axios.get(`${API}/analytics/summary`, {
-        params: { userId, orgId, period },
-      });
-      setSummary(res.data?.data || {});
-    } catch (err) {
-      console.error(err);
-      setSummary({});
-    }
-  }
-
-  async function loadPerformance() {
-    try {
-      const res = await axios.get(`${API}/analytics/performance`, {
-        params: { userId, orgId, period },
-      });
-      setPerformance(res.data?.data || {});
-    } catch (err) {
-      console.error(err);
-      setPerformance({});
-    }
-  }
-
-  async function loadRanks() {
-    try {
-      const res = await axios.get(`${API}/analytics/ranks`, {
-        params: { userId, orgId, period },
-      });
-      setRanks(res.data?.data || {});
-    } catch (err) {
-      console.error(err);
-      setRanks({});
-    }
-  }
-
-  async function loadExamChart() {
-    try {
-      const res = await axios.get(`${API}/analytics/exams-chart`, {
-        params: { userId, orgId },
-      });
-      const list = res.data?.data || [];
-      const mapped = list.map((x) => ({
-        name: x.title,
-        value: Number(x.score || 0),
-      }));
-      setExamChart(mapped);
-    } catch (err) {
-      console.error(err);
-      setExamChart([]);
-    }
-  }
-
-  async function loadSubjects() {
-    try {
-      const res = await axios.get(`${API}/analytics/subjects-chart`, {
-        params: { userId, orgId, period },
-      });
-      const list = res.data?.data || [];
-      const mapped = list.map((x, i) => ({
-        name: x.subject,
-        value: Number(x.avg_score || 0),
-        color: SUBJECT_COLORS[i % SUBJECT_COLORS.length],
-      }));
-      setSubjectChart(mapped);
-    } catch (err) {
-      console.error(err);
-      setSubjectChart([]);
-    }
-  }
-
-  async function loadExamwiseByRange() {
-    if (!dateRange.from || !dateRange.to) {
-      loadSubjects();
-      return;
-    }
-    try {
-      const res = await axios.get(`${API}/analytics/examwise-performance`, {
-        params: { userId, orgId, from: dateRange.from, to: dateRange.to },
-      });
-      const list = res.data?.data?.performance || [];
-      const mapped = list.map((x, i) => ({
-        name: x.subject,
-        value: Number(x.avg_score || 0),
-        color: SUBJECT_COLORS[i % SUBJECT_COLORS.length],
-      }));
-      setSubjectChart(mapped);
-    } catch (err) {
-      console.error(err);
-      setSubjectChart([]);
-    }
-  }
+  const periodParam = period === "6 Months" ? "6months" : "1year"; 
 
   useEffect(() => {
-    loadSummary();
-    loadPerformance();
-    loadRanks();
-    loadExamChart();
-    loadSubjects();
-  }, []);
+    fetchSummary();
+    fetchMetrics();
+    fetchRanks();
+    fetchMonthlyAssessment();
+  }, [period]);
 
-  const apply = () => {
-    setDateFilterOpen(false);
-    loadExamwiseByRange();
+  const fetchSummary = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/analytics/summary`, {
+        withCredentials: true,
+      });
+      setSummary(res.data.success ? res.data.data : null);
+    } catch (err) {
+      console.error("Summary API error:", err);
+      setSummary(null);
+    }
   };
 
-  const clear = () => {
-    setDateRange({ from: "", to: "" });
+  const fetchMetrics = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/analytics/performance`, {
+        withCredentials: true,
+      });
+      setMetrics(res.data.success ? res.data.data : null);
+    } catch (err) {
+      console.error("Metrics API error:", err);
+      setMetrics(null);
+    }
+  };
+
+  const fetchRanks = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/analytics/ranks`, {
+        withCredentials: true,
+      });
+      setRanks(res.data.success ? res.data.data : null);
+    } catch (err) {
+      console.error("Ranks API error:", err);
+      setRanks(null);
+    }
+  };
+
+  const fetchMonthlyAssessment = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/analytics/monthly-assessment`, {
+        params: {
+          period: periodParam,
+        },
+        withCredentials: true,
+      });
+      if (res.data?.success) {
+        setExamChart(res.data.data || []);
+      }
+
+    } catch (err) {
+      console.error("Monthly assessment error:", err);
+      setExamChart([]);
+    }
+  };
+
+  const applyDateFilter = async () => {
+    if (!dateRange.from || !dateRange.to) return;
+
+    try {
+      const res = await axios.get(`${API_BASE}/analytics/exam-wise-performance`, {
+        params: {
+          from: dateRange.from,
+          to: dateRange.to,
+        },
+        withCredentials: true,
+      });
+
+      setSubjectChart(
+        res.data.success
+          ? res.data.data.map((x) => ({
+              name: x.subject,
+              value: x.score,
+            }))
+          : []
+      );
+    } catch (err) {
+      console.error("Exam-wise performance error:", err);
+      setSubjectChart([]);
+    }
+
     setDateFilterOpen(false);
-    loadSubjects();
+  };
+
+  const clearDate = () => {
+    setDateRange({ from: "", to: "" });
+    setSubjectChart([]);
+    setDateFilterOpen(false);
   };
 
   return (
@@ -201,37 +175,67 @@ export default function Analytics() {
             <h1 className="text-[26px] font-semibold text-gray-900 dark:text-white">
               Analytics
             </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-[2px]">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Track your academic progress and performance
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
             <Card title="Exam Summary">
-              <Row label="Total Exams" value={safe(summary.totalExams)} />
-              <Row label="Attempted" value={safe(summary.attempted)} />
-              <Row label="Pending" value={safe(summary.pending)} />
-              <Row label="Completion Rate" value={`${safe(summary.completionRate)}%`} />
+              <Row label="Total Exams" value={summary?.totalExams ?? "-"} />
+              <Row label="Attempted" value={summary?.attempted ?? "-"} />
+              <Row label="Pending" value={summary?.pending ?? "-"} />
+              <Row
+                label="Completion Rate"
+                value={`${summary?.completionRate ?? 0}%`}
+              />
             </Card>
 
             <Card title="Performance Metrics">
-              <Row label="Average Score" value={`${safe(performance.avg_score)}%`} />
-              <Row label="Highest Score" value={`${safe(performance.highest_score)}%`} />
-              <Row label="Lowest Score" value={`${safe(performance.lowest_score)}%`} />
+              <Row
+                label="Average Score"
+                value={`${metrics?.averageScore ?? 0}%`}
+              />
+              <Row
+                label="Highest Score"
+                value={`${metrics?.highestScore ?? 0}%`}
+              />
+              <Row
+                label="Lowest Score"
+                value={`${metrics?.lowestScore ?? 0}%`}
+              />
+              <Row
+                label="Improvement"
+                value={`${metrics?.improvement ?? 0}%`}
+                isGreen
+              />
             </Card>
 
-            <Card title="Rank in Exams">
-              <Row label="Average Rank" value={safe(ranks.averageRank)} />
-              <Row label="Last Exam Rank" value={safe(ranks.lastExamRank)} />
-              <Row label="Best Exam Rank" value={safe(ranks.recentExamRank)} />
+            <Card title="Rank in Exam">
+              <Row label="Average Rank" value={ranks?.averageRank ?? "-"} />
+              <Row label="Last Exam Rank" value={ranks?.lastExamRank ?? "-"} />
+              <Row label="Best Exam Rank" value={ranks?.bestExamRank ?? "-"} />
+              <Row
+                label="OverAll Subject Rank"
+                value={ranks?.overallSubjectRank ?? "-"}
+              />
             </Card>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <Card>
-              <h2 className="text-sm font-semibold mb-4 text-gray-900 dark:text-white">
-                Monthly Assessment Wise
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Monthly Assessment Wise
+                </h2>
+                <DropdownSimple
+                  open={openPeriod}
+                  setOpen={setOpenPeriod}
+                  value={period}
+                  onChange={setPeriod}
+                  options={["6 Months", "1 Year"]}
+                />
+              </div>
               <MemoSubscriberChart data={examChart} />
             </Card>
 
@@ -242,7 +246,7 @@ export default function Analytics() {
                     Exam-wise Performance
                   </h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Your Performance across exams
+                    Your performance across exams
                   </p>
                 </div>
 
@@ -256,37 +260,46 @@ export default function Analytics() {
 
                   {dateFilterOpen && (
                     <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#111827] border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-3 z-50">
-                      <p className="text-xs font-semibold mb-2 text-gray-700 dark:text-gray-200">
-                        Select Date Range
-                      </p>
-
-                      <div className="space-y-2 mb-3">
-                        <div>
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">From</span>
+                      <div className="space-y-3 mb-3">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            From
+                          </span>
                           <input
                             type="date"
                             value={dateRange.from}
-                            onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-                            className="w-full border rounded-md px-2 py-1 text-xs bg-white dark:bg-[#1F2937]"
+                            onChange={(e) =>
+                              setDateRange({ ...dateRange, from: e.target.value })
+                            }
+                            className="w-full border rounded-md px-2 py-1 text-xs"
                           />
                         </div>
 
-                        <div>
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">To</span>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            To
+                          </span>
                           <input
                             type="date"
                             value={dateRange.to}
-                            onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-                            className="w-full border rounded-md px-2 py-1 text-xs bg-white dark:bg-[#1F2937]"
+                            onChange={(e) =>
+                              setDateRange({ ...dateRange, to: e.target.value })
+                            }
+                            className="w-full border rounded-md px-2 py-1 text-xs"
                           />
                         </div>
                       </div>
-
                       <div className="flex justify-end gap-2">
-                        <button onClick={clear} className="px-3 py-1 rounded-md text-xs border">
+                        <button
+                          onClick={clearDate}
+                          className="px-3 py-1 rounded-md text-xs border"
+                        >
                           Clear
                         </button>
-                        <button onClick={apply} className="px-3 py-1 rounded-md text-xs bg-[#4F46E5] text-white">
+                        <button
+                          onClick={applyDateFilter}
+                          className="px-3 py-1 rounded-md text-xs bg-[#4F46E5] text-white"
+                        >
                           Apply
                         </button>
                       </div>
@@ -298,7 +311,6 @@ export default function Analytics() {
               <MemoSubjectChart data={subjectChart} />
             </Card>
           </div>
-
         </div>
       </div>
     </UserLayout>
@@ -318,11 +330,53 @@ function Card({ children, title }) {
   );
 }
 
-function Row({ label, value }) {
+function Row({ label, value, isGreen }) {
   return (
-    <div className="flex justify-between">
+    <div className="flex justify-between text-sm">
       <span className="text-gray-600 dark:text-gray-400">{label}</span>
-      <span className="text-gray-900 dark:text-gray-100 font-medium">{value}</span>
+      <span
+        className={
+          isGreen
+            ? "text-green-600 font-semibold"
+            : "text-gray-900 dark:text-gray-100 font-medium"
+        }
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function DropdownSimple({ open, setOpen, value, onChange, options }) {
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="px-4 py-2 border rounded-md text-sm flex items-center justify-between min-w-[140px]
+        bg-white dark:bg-[#1F2937] text-gray-900 dark:text-gray-200 border-gray-300 dark:border-gray-700"
+      >
+        {value}
+        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-full bg-white dark:bg-[#1F2937]
+          border border-gray-300 dark:border-gray-700 rounded-md shadow-lg z-50">
+          {options.map((o) => (
+            <button
+              key={o}
+              onClick={() => {
+                onChange(o);
+                setOpen(false);
+              }}
+              className="block w-full text-left px-4 py-2 text-sm
+              text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              {o}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

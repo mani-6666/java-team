@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
+import { useEffect, useState } from "react";
 import UserLayout from "../usercomponents/UserLayout";
+import axios from "axios";
 import {
   ResponsiveContainer,
   LineChart,
@@ -11,6 +11,8 @@ import {
 } from "recharts";
 import { FileText, TrendingUp, Trophy, BookOpen } from "lucide-react";
 
+const API_BASE = "http://localhost:5000/api/user";
+
 function StatCard({ icon: Icon, value, label, helper }) {
   return (
     <div className="bg-white dark:bg-[#0F1216] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-sm px-5 py-4 flex flex-col">
@@ -19,12 +21,20 @@ function StatCard({ icon: Icon, value, label, helper }) {
           <Icon size={22} className="text-[#4F46E5]" />
         </div>
         <div className="flex flex-col">
-          <span className="text-[20px] font-semibold leading-tight text-gray-900 dark:text-white">{value}</span>
-          <span className="text-[13px] text-gray-600 dark:text-gray-300 mt-1">{label}</span>
+          <span className="text-[20px] font-semibold leading-tight text-gray-900 dark:text-white">
+            {value}
+          </span>
+          <span className="text-[13px] text-gray-600 dark:text-gray-300 mt-1">
+            {label}
+          </span>
         </div>
       </div>
+
       <div className="w-full h-[1px] bg-gray-200 dark:bg-gray-800 my-3"></div>
-      <span className="text-[12px] text-gray-500 dark:text-gray-400">{helper}</span>
+
+      <span className="text-[12px] text-gray-500 dark:text-gray-400">
+        {helper}
+      </span>
     </div>
   );
 }
@@ -37,31 +47,11 @@ function ExamTag({ label }) {
   );
 }
 
-function formatDateLabel(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function formatDate(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  return d.toLocaleDateString("en-GB");
-}
-
-function formatTime(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
-
 export default function Dashboard() {
-  const BASE_URL = "http://localhost:5000/api/user";
-
-  const [overview, setOverview] = useState({
+  const [stats, setStats] = useState({
     totalExams: 0,
     activeExams: 0,
-    attemptedExams: 0,
+    attempted: 0,
     remainingExams: 0,
     averageScore: 0,
     studyMaterials: 0
@@ -71,142 +61,147 @@ export default function Dashboard() {
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [achievements, setAchievements] = useState([]);
 
-  async function loadOverview() {
-    try {
-      const res = await axios.get(`${BASE_URL}/dashboard/overview`);
-      const d = res.data?.data || {};
-      setOverview({
-        totalExams: Number(d.totalExams || 0),
-        activeExams: Number(d.activeExams || 0),
-        attemptedExams: Number(d.attemptedExams || 0),
-        remainingExams: Number(d.remainingExams || 0),
-        averageScore: Number(d.averageScore || 0),
-        studyMaterials: Number(d.studyMaterials || 0)
-      });
-    } catch (err) {
-      console.error("OVERVIEW API ERROR:", err);
-      setOverview({
-        totalExams: 0,
-        activeExams: 0,
-        attemptedExams: 0,
-        remainingExams: 0,
-        averageScore: 0,
-        studyMaterials: 0
-      });
-    }
-  }
-
-  async function loadPerformance() {
-    try {
-      const res = await axios.get(`${BASE_URL}/dashboard/performance`);
-      const list = res.data?.data || [];
-      const mapped = list.map((row) => ({
-        day: formatDateLabel(row.date),
-        score: Number(row.avg_score || 0)
-      }));
-      setPerformanceData(mapped);
-    } catch (err) {
-      console.error(err);
-      setPerformanceData([]);
-    }
-  }
-
-  async function loadUpcomingExams() {
-    try {
-      const res = await axios.get(`${BASE_URL}/dashboard/upcoming-exams`);
-      const list = res.data?.data || [];
-      const mapped = list.map((exam) => ({
-        id: exam.id,
-        name: exam.title,
-        date: formatDate(exam.start_time),
-        time: formatTime(exam.start_time),
-        tag: exam.examMode || "MCQs"
-      }));
-      setUpcomingExams(mapped);
-    } catch (err) {
-      console.error(err);
-      setUpcomingExams([]);
-    }
-  }
-
-  async function loadAchievements() {
-    try {
-      const res = await axios.get(`${BASE_URL}/dashboard/achievements`);
-      const list = res.data?.data || [];
-      const mapped = list.map((a) => ({
-        id: a.id,
-        title: a.title,
-        description: a.description,
-        date: formatDate(a.created_at || a.createdAt || a.date)
-      }));
-      setAchievements(mapped);
-    } catch (err) {
-      console.error(err);
-      setAchievements([]);
-    }
-  }
-
   useEffect(() => {
     loadOverview();
     loadPerformance();
-    loadUpcomingExams();
+    loadUpcoming();
     loadAchievements();
   }, []);
 
-  const stats = [
-    { id: 1, label: "Total Exams", value: overview.totalExams, description: `${overview.activeExams} currently active`, icon: FileText },
-    { id: 2, label: "Attempted", value: overview.attemptedExams, description: `${overview.remainingExams} remaining`, icon: Trophy },
-    { id: 3, label: "Average Score", value: `${overview.averageScore}%`, description: "Across all attempts", icon: TrendingUp },
-    { id: 4, label: "Study Materials", value: overview.studyMaterials, description: "Available resources", icon: BookOpen }
-  ];
+  const loadOverview = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/dashboard/overview`, {
+        withCredentials: true
+      });
+      if (res.data.success) {
+        setStats(res.data.data);
+      }
+    } catch (err) {
+      console.error("Overview API error:", err);
+    }
+  };
+
+  const loadPerformance = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/dashboard/performance`, {
+        withCredentials: true
+      });
+      if (res.data.success) {
+        setPerformanceData(
+          res.data.data.map(d => ({
+            day: new Date(d.date).toLocaleDateString("en-IN", {
+              month: "short",
+              day: "numeric"
+            }),
+            score: d.score
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Performance API error:", err);
+    }
+  };
+
+  const loadUpcoming = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/dashboard/upcoming-exams`, {
+        withCredentials: true
+      });
+      if (res.data.success) {
+        setUpcomingExams(
+          res.data.data.map(e => ({
+            id: e.id,
+            name: e.title,
+            date: new Date(e.date).toLocaleDateString(),
+            time: new Date(e.date).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit"
+            }),
+            tag: e.tag
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Upcoming exams API error:", err);
+    }
+  };
+
+  const loadAchievements = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/dashboard/achievements`, {
+        withCredentials: true
+      });
+      if (res.data.success) {
+        setAchievements(res.data.data);
+      }
+    } catch (err) {
+      console.error("Achievements API error:", err);
+    }
+  };
 
   return (
     <UserLayout>
       <div className="w-full min-h-[calc(100vh-4rem)] bg-gray-50 dark:bg-[#0D1117] text-gray-900 dark:text-white">
-        <div className="max-w-6xl mx-auto space-y-6 py-4">
+        <div className="max-w-6xl mx-auto space-y-6">
+
           <div className="pt-2">
-            <h2 className="text-2xl sm:text-[26px] font-semibold tracking-tight">Welcome Back, Student!</h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Track your progress and upcoming exams</p>
+            <h2 className="text-2xl sm:text-[26px] font-semibold tracking-tight">
+              Welcome Back, Student!
+            </h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Track your progress and upcoming exams
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {stats.map((item) => (
-              <StatCard key={item.id} icon={item.icon} value={item.value} label={item.label} helper={item.description} />
-            ))}
+            <StatCard icon={FileText} value={stats.totalExams} label="Total Exams" helper={`${stats.activeExams} currently active`} />
+            <StatCard icon={Trophy} value={stats.attempted} label="Attempted" helper={`${stats.remainingExams} remaining`} />
+            <StatCard icon={TrendingUp} value={`${stats.averageScore}%`} label="Average Score" helper="Across all attempts" />
+            <StatCard icon={BookOpen} value={stats.studyMaterials} label="Study Materials" helper="Available resources" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div className="bg-white dark:bg-[#0F1216] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-sm p-5 flex flex-col min-h-[250px]">
+            <div className="bg-white dark:bg-[#0F1216] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-sm p-5">
               <h3 className="text-sm font-semibold">Performance Progress</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Your score trend over time</p>
-              <div className="h-56 mt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Your score trend over time
+              </p>
+
+              <div className="h-56 mt-2 flex items-center justify-center">
                 {performanceData.length === 0 ? (
-                  <div className="w-full h-full flex items-center justify-center text-gray-500">No performance data yet</div>
+                  <span className="text-gray-500">No performance data yet</span>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={performanceData}>
-                      <XAxis dataKey="day" stroke="#9CA3AF" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: "#E5E7EB" }} />
-                      <YAxis domain={[0, 100]} stroke="#9CA3AF" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: "#E5E7EB" }} />
-                      <Tooltip contentStyle={{ backgroundColor: "#111827", borderRadius: 8, border: "none", padding: 8, color: "white", fontSize: 12 }} />
-                      <Line type="monotone" dataKey="score" stroke="#4F46E5" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 4 }} />
+                      <XAxis dataKey="day" />
+                      <YAxis domain={[0, 100]} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="score" stroke="#4F46E5" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
                 )}
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#0F1216] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-sm p-5 min-h-[250px]">
+            <div className="bg-white dark:bg-[#0F1216] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-sm p-5">
               <h3 className="text-sm font-semibold">Upcoming Exams</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Your scheduled exams</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Your scheduled exams
+              </p>
+
               <div className="mt-4 space-y-3.5">
                 {upcomingExams.length === 0 ? (
-                  <div className="w-full py-8 flex items-center justify-center text-gray-500">No upcoming exams</div>
+                  <div className="text-center text-gray-500 py-8">
+                    No upcoming exams
+                  </div>
                 ) : (
-                  upcomingExams.map((exam) => (
+                  upcomingExams.map(exam => (
                     <div key={exam.id} className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111827] px-4 py-3">
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">{exam.name}</span>
-                        <span className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{exam.date} • {exam.time}</span>
+                        <span className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                          {exam.date} • {exam.time}
+                        </span>
                       </div>
                       <ExamTag label={exam.tag} />
                     </div>
@@ -218,19 +213,29 @@ export default function Dashboard() {
 
           <div className="pb-4">
             <h3 className="text-sm font-semibold">Recent Achievements</h3>
+
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {achievements.length === 0 ? (
-                <div className="col-span-full py-8 flex items-center justify-center text-gray-500">No recent achievements</div>
+                <div className="col-span-3 text-center text-gray-500 py-8">
+                  No recent achievements
+                </div>
               ) : (
-                achievements.map((item) => (
+                achievements.map(item => (
                   <div key={item.id} className="flex items-start gap-4 rounded-2xl bg-white dark:bg-[#0F1216] border border-gray-100 dark:border-gray-800 shadow-sm px-4 py-4">
                     <div className="h-11 w-11 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
                       <Trophy size={20} className="text-blue-600 dark:text-blue-300" />
                     </div>
+
                     <div className="flex flex-col">
-                      <span className="text-sm font-semibold leading-tight">{item.title}</span>
-                      <span className="mt-1 text-xs text-gray-500 dark:text-gray-400 leading-snug">{item.description}</span>
-                      <span className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">{item.date}</span>
+                      <span className="text-sm font-semibold leading-tight">
+                        {item.title}
+                      </span>
+                      <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {item.description}
+                      </span>
+                      <span className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
+                        {new Date(item.created_at).toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
                 ))
