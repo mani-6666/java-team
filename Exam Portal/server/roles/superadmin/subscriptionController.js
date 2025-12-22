@@ -1,8 +1,6 @@
 const express = require("express");
 const db = require("../config/database");
-
 const router = express.Router();
-
 router.post("/", async (req, res) => {
   try {
     const { planTitle, price, billingCycle, features, createdBy } = req.body;
@@ -39,8 +37,6 @@ router.post("/", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
-
 router.get("/", async (req, res) => {
   try {
     const result = await db.query(`
@@ -55,14 +51,11 @@ router.get("/", async (req, res) => {
       FROM mainexamportal.subscription_plans sp
       ORDER BY sp.created_at DESC
     `);
-
     res.json({ success: true, data: result.rows });
-
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
 router.get("/:planId", async (req, res) => {
   try {
     const result = await db.query(
@@ -142,7 +135,6 @@ router.post("/assign", async (req, res) => {
       });
     }
 
-    // deactivate previous subscription
     await db.query(`
       UPDATE mainexamportal.organization_subscription
       SET is_active = FALSE, is_deleted = TRUE

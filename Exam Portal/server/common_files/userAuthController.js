@@ -1,78 +1,105 @@
 const express = require("express");
 const router = express.Router();
-
-const bcrypt = require("bcryptjs");
+const { hashPassword, comparePassword } = require("../utils/bcrypt");
 const pool = require("../dbconfig/db");
 const issueToken = require("../authentication/issueToken");
+const { sendMail } = require("../utils/mailservice");
+
+const otpStore = new Map();     
+const otpVerified = new Map();  
+
+
 
 router.post("/register", async (req, res) => {
   try {
-    const { fullName, email, password, organizationId, mobile, gender } = req.body;
+    const { fullName, email, password, organizationId, mobile, gender, age } = req.body;
 
     if (!fullName || !email || !password || !organizationId) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
+
+    const emailCheck = await pool.query(
+      `SELECT email FROM mainexamportal.users WHERE email = $1`,
+      [email]
+    );
+
+    if (emailCheck.rows.length > 0) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    const hashed = await hashPassword(password);
     const now = new Date();
 
+  
     const userResult = await pool.query(
       `
-      INSERT INTO users (email, password_hash, org_id, role)
-      VALUES ($1, $2, $3, 'user')
-      RETURNING user_id, email, org_id, role
+      INSERT INTO mainexamportal.users 
+      (email, password_hash, org_id, status, created_at, is_deleted)
+      VALUES ($1, $2, $3, 'active', $4, false)
+      RETURNING user_id
       `,
-      [email, hashed, organizationId]
+      [email, hashed, organizationId, now]
     );
 
     const user = userResult.rows[0];
 
-    
+  
     await pool.query(
       `
-      INSERT INTO user_details (user_id, name, mobile, gender, created_at)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO mainexamportal.user_details 
+(user_id, name, mobile, age, gender, created_at, is_deleted)
+VALUES ($1, $2, $3, $4, $5, $6, false)
       `,
-      [user.user_id, fullName, mobile || null, gender || null, now]
+      [
+        user.user_id,
+        fullName,
+        mobile || null,
+        age || null,
+        gender || null,
+        now
+      ]
     );
 
-    res.status(201).json({
-      message: "User registered successfully",
-      user: {
-        user_id: user.user_id,
-        fullName,
-        email,
-        mobile,
-        gender,
-        organizationId,
-        role: user.role
-      }
-    });
+    return res.status(201).json({ message: "User registered successfully" });
 
   } catch (err) {
     console.error("REGISTER ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 });
+
 
 router.post("/login", async (req, res) => {
   try {
     const { email, password, loginType } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
   
     if (loginType === "asi") {
       const asiResult = await pool.query(
-        `SELECT * FROM asi_users WHERE email = $1`,
+        `SELECT asi_id, email, password_hash, status, role, org_id, is_deleted 
+         FROM mainexamportal.asi_users 
+         WHERE email = $1`,
         [email]
       );
 
       if (asiResult.rows.length > 0) {
         const asi = asiResult.rows[0];
 
-        const match = await bcrypt.compare(password, asi.password_hash);
-        if (!match) {
+        if (asi.is_deleted)
+          return res.status(400).json({ message: "Account deleted" });
+
+        if (asi.status !== "active")
+          return res.status(403).json({ message: "Account inactive" });
+
+        const match = await comparePassword(password, asi.password_hash);
+       
+        if (!match)
           return res.status(400).json({ message: "Invalid credentials" });
-        }
 
         const token = issueToken(res, {
           user_id: asi.asi_id,
@@ -81,24 +108,20 @@ router.post("/login", async (req, res) => {
         });
 
         return res.json({
-          message: "Login successful (ASI)",
-          token,
-          user: {
-            id: asi.asi_id,
-            email: asi.email,
-            role: asi.role,
-            organizationId: asi.org_id,
-            type: "asi_user"
-          }
+          message: "Login successful",
+          token
         });
       }
     }
 
+   
+ const userResult = await pool.query(
+  `SELECT user_id, email, password_hash, org_id, status, is_deleted 
+   FROM mainexamportal.users 
+   WHERE email = $1`,
+  [email]
+);
 
-    const userResult = await pool.query(
-      `SELECT * FROM users WHERE email = $1`,
-      [email]
-    );
 
     if (userResult.rows.length === 0) {
       return res.status(400).json({ message: "User not found" });
@@ -106,42 +129,150 @@ router.post("/login", async (req, res) => {
 
     const user = userResult.rows[0];
 
-    const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) {
+    if (user.is_deleted)
+      return res.status(400).json({ message: "Account deleted" });
+
+    if (user.status !== "active")
+      return res.status(403).json({ message: "Account inactive" });
+
+    const match = await comparePassword(password, user.password_hash);
+    if (!match)
       return res.status(400).json({ message: "Invalid credentials" });
-    }
 
-    const token = issueToken(res, {
-      user_id: user.user_id,
-      role: user.role,
-      org_id: user.org_id
-    });
+  const token = issueToken(res, {
+  user_id: user.user_id,
+  role: "user",
+  org_id: user.org_id
+});
 
-    const details = await pool.query(
-      `SELECT name, mobile, gender FROM user_details WHERE user_id = $1`,
-      [user.user_id]
-    );
-
-    const profile = details.rows[0] || {};
 
     return res.json({
-      message: "Login successful (Normal User)",
-      token,
-      user: {
-        id: user.user_id,
-        email: user.email,
-        role: user.role,
-        organizationId: user.org_id,
-        name: profile.name,
-        mobile: profile.mobile,
-        gender: profile.gender,
-        type: "normal_user"
-      }
+      message: "Login successful",
+      token
     });
 
   } catch (err) {
     console.error("LOGIN ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 });
+  
+
+
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+      console.log("EMAIL RECEIVED FOR OTP:", email);  
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const check = await pool.query(
+      `SELECT email FROM mainexamportal.users WHERE email=$1
+       UNION
+       SELECT email FROM mainexamportal.asi_users WHERE email=$1`,
+      [email]
+    );
+
+    if (check.rows.length === 0) {
+      return res.status(400).json({ message: "Email not registered" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    otpStore.set(email, otp);
+
+   await sendMail(
+  email,
+  "Password Reset OTP",
+  `
+    <h2>Your OTP is <b>${otp}</b></h2>
+    <p>This OTP expires in 5 minutes.</p>
+  `
+);
+
+
+    return res.json({ message: "OTP sent to email" });
+
+  } catch (err) {
+    console.error("OTP SEND ERROR:", err);
+    return res.status(500).json({ message: err.message || "Server error" });
+  }
+});
+
+router.post("/forgot-password/verify-otp", (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const savedOtp = otpStore.get(email);
+
+ 
+    if (!savedOtp) {
+      return res.status(400).json({
+        message: "OTP expired or not sent",
+        verified: false
+      });
+    }
+
+    if (savedOtp !== otp) {
+      return res.status(400).json({
+        message: "Invalid OTP",
+        verified: false
+      });
+    }
+
+    otpVerified.set(email, true);
+    otpStore.delete(email); 
+
+    return res.json({
+      message: "OTP verified",
+      email,
+      verified: true
+    });
+    
+  } catch (err) {
+    return res.status(500).json({
+      message: "Server error",
+      verified: false
+    });
+  }
+});
+
+
+router.post("/forgot-password/reset-password", async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+
+    if (!otpVerified.get(email)) {
+      return res.status(400).json({
+        message: "OTP not verified. Please verify OTP first."
+      });
+    }
+
+    const hashed = await hashPassword(newPassword, 10);
+
+    
+    await pool.query(
+      `UPDATE mainexamportal.users SET password_hash=$1 WHERE email=$2`,
+      [hashed, email]
+    );
+
+    await pool.query(
+      `UPDATE mainexamportal.asi_users SET password_hash=$1 WHERE email=$2`,
+      [hashed, email]
+    );
+
+    otpVerified.delete(email);
+
+    return res.json({ message: "Password reset successful" });
+
+  } catch (err) {
+    console.error("RESET PASSWORD ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 module.exports = router;

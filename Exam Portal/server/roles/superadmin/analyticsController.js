@@ -1,11 +1,8 @@
 const express = require("express");
 const db = require("../config/database");
 const router = express.Router();
-// REVENUE ANALYTICS 
 router.get("/revenue", async (req, res) => {
-  try {
-
-    // Monthly Revenue + Transactions
+  try {   
     const revenueQuery = await db.query(`
       SELECT 
         TO_CHAR(os.start_date, 'Mon') AS month,
@@ -17,8 +14,6 @@ router.get("/revenue", async (req, res) => {
       GROUP BY month
       ORDER BY MIN(os.start_date)
     `);
-
-    // Subscription Distribution
     const distributionQuery = await db.query(`
       SELECT 
         sp.plan_name,
@@ -28,7 +23,6 @@ router.get("/revenue", async (req, res) => {
       WHERE os.is_active = TRUE AND os.is_deleted = FALSE
       GROUP BY sp.plan_name
     `);
-
     const distribution = {};
     distributionQuery.rows.forEach((d) => {
       distribution[d.plan_name] = Number(d.count);
@@ -38,7 +32,6 @@ router.get("/revenue", async (req, res) => {
       success: true,
       monthlyRevenue: revenueQuery.rows,
       subscriptionTypes: distribution
-      // examTrend → pending exam table confirmation
     });
 
   } catch (err) {
@@ -46,12 +39,8 @@ router.get("/revenue", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
-// USERS ANALYTICS
 router.get("/users", async (req, res) => {
   try {
-
-    // Admin + Invigilator trend from asi_users
     const staffTrend = await db.query(`
       SELECT 
         TO_CHAR(created_at, 'Mon') AS month,
@@ -61,8 +50,6 @@ router.get("/users", async (req, res) => {
       GROUP BY month
       ORDER BY MIN(created_at)
     `);
-
-    // Student trend from users
     const studentTrend = await db.query(`
       SELECT 
         TO_CHAR(created_at, 'Mon') AS month,
@@ -71,8 +58,6 @@ router.get("/users", async (req, res) => {
       GROUP BY month
       ORDER BY MIN(created_at)
     `);
-
-    // Merge trends
     const mergedTrend = staffTrend.rows.map(r => {
       const match = studentTrend.rows.find(s => s.month === r.month);
       return {
@@ -82,8 +67,6 @@ router.get("/users", async (req, res) => {
         users: match ? Number(match.students) : 0
       };
     });
-
-    // Organization User Count
     const orgUsers = await db.query(`
       SELECT 
         o.name AS organization,
@@ -98,7 +81,6 @@ router.get("/users", async (req, res) => {
       success: true,
       activeUsersTrend: mergedTrend,
       organizationUsers: orgUsers.rows
-      // dailyLogins → pending login table confirmation
     });
 
   } catch (err) {

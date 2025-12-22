@@ -1,7 +1,6 @@
 const express = require("express");
 const db = require("../config/database");
 const router = express.Router();
-//SUPER ADMIN DASHBOARD SUMMARY 
 router.get("/summary", async (req, res) => {
   try {
     const totalClients = await db.query(
@@ -32,7 +31,6 @@ router.get("/summary", async (req, res) => {
     });
   }
 });
-// ALL CLIENTS TABLE 
 router.get("/clients", async (req, res) => {
   try {
     const orgs = await db.query(`
@@ -70,8 +68,6 @@ router.get("/clients", async (req, res) => {
     });
   }
 });
-
-// IMPERSONATE ADMIN USER
 router.put("/impersonate-admin/:asi_id", async (req, res) => {
   try {
     const { asi_id } = req.params;
@@ -83,14 +79,10 @@ router.put("/impersonate-admin/:asi_id", async (req, res) => {
         message: "Full Name, Email and Phone are required"
       });
     }
-
-    // Update email in asi_users
     await db.query(
       `UPDATE asi_users SET email = $1 WHERE asi_id = $2`,
       [email, asi_id]
     );
-
-    // Update full name & phone in asi_details
     await db.query(
       `UPDATE asi_details SET full_name = $1, phone = $2 WHERE asi_id = $3`,
       [fullName, phone, asi_id]
@@ -109,7 +101,6 @@ router.put("/impersonate-admin/:asi_id", async (req, res) => {
     });
   }
 });
-// MANAGE ORGANIZATIONS
 router.put("/organization/update/:org_id", async (req, res) => {
   try {
     const { org_id } = req.params;
@@ -140,8 +131,6 @@ router.put("/organization/update/:org_id", async (req, res) => {
     });
   }
 });
-
-  //SUBSCRIPTIONS 
 router.get("/subscriptions", (req, res) => {
   res.json({
     success: true,
@@ -149,7 +138,6 @@ router.get("/subscriptions", (req, res) => {
     message: "Subscription module not implemented yet"
   });
 });
-// USER ACTIVITY LOGS 
 router.get("/activity", (req, res) => {
   res.json({
     success: true,

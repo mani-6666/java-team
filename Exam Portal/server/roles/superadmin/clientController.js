@@ -15,7 +15,7 @@ function generateRandomPassword(length = 10) {
   return password;
 }
 async function sendLoginEmail(to, fullName, role, orgName, password) {
-  try {
+  try { 
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to,
@@ -32,6 +32,7 @@ async function sendLoginEmail(to, fullName, role, orgName, password) {
         <p>Regards,<br/>ExamMarkPro Team</p>
       `,
     };
+    
 
     await transporter.sendMail(mailOptions);
     console.log("📩 Login Email Sent To:", to);
@@ -50,8 +51,6 @@ router.post("/", async (req, res) => {
           "Organization Name, Email, Role, and Contact Person Name are required",
       });
     }
-
-    // Email already exists?
     const checkEmail = await db.query(
       `SELECT asi_id FROM mainexamportal.asi_users WHERE email=$1`,
       [email]
@@ -63,14 +62,10 @@ router.post("/", async (req, res) => {
         message: "Email already exists",
       });
     }
-
-    // Generate ORG ID
     const newOrgIdResult = await db.query(
       `SELECT mainexamportal.generate_org_id() AS org_id`
     );
     const newOrgId = newOrgIdResult.rows[0].org_id;
-
-    // Insert organization
     const org = await db.query(
       `INSERT INTO mainexamportal.organizations 
         (org_id, name, description, status)
@@ -78,12 +73,8 @@ router.post("/", async (req, res) => {
        RETURNING *`,
       [newOrgId, organizationName, description]
     );
-
-    // Generate password
     const tempPassword = generateRandomPassword();
     const passwordHash = await bcrypt.hash(tempPassword, 10);
-
-    // Insert admin user
     const user = await db.query(
       `INSERT INTO mainexamportal.asi_users 
         (email, password_hash, role, status, org_id, full_name)
@@ -91,8 +82,6 @@ router.post("/", async (req, res) => {
        RETURNING *`,
       [email, passwordHash, role.toLowerCase(), newOrgId, fullName]
     );
-
-    //  SEND LOGIN EMAIL
     sendLoginEmail(email, fullName, role, organizationName, tempPassword);
 
     return res.status(201).json({
@@ -181,7 +170,7 @@ router.get("/:orgId/info", async (req, res) => {
         (
           await db.query(
             `SELECT COUNT(*) FROM mainexamportal.exams 
-             WHERE organization_id=$1 AND is_deleted=false`,
+             WHERE org_id=$1 AND is_deleted=false`,
             [orgId]
           )
         ).rows[0].count
@@ -255,8 +244,6 @@ router.post("/:orgId/users", async (req, res) => {
        RETURNING *`,
       [email, passwordHash, role.toLowerCase(), orgId, fullName]
     );
-
-    // EMAIL FOR INVIGILATOR/ADMIN
     sendLoginEmail(email, fullName, role, orgId, tempPassword);
 
     res.status(201).json({
