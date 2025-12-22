@@ -3,15 +3,6 @@ const express = require("express");
 const db = require("../config/db.js");
 const router = express.Router();
 
-/*
- Database Schema:
- - exams (exam_id UUID, org_id VARCHAR, title VARCHAR, type ENUM, duration_min INT, status ENUM, created_at, is_deleted)
- - exam_details (exam_id UUID, description TEXT, total_questions INT, total_marks INT, start_date TIMESTAMP, end_date TIMESTAMP)
- - exam_attempt (attempt_id UUID, exam_id UUID, user_id UUID, started_at, ended_at, status ENUM, score INT, percentage NUMERIC)
- - questions (question_id UUID, exam_id UUID, question_text TEXT, marks INT, question_type ENUM)
- - mcq_questions (option_id UUID, question_id UUID, option_text TEXT, is_correct BOOLEAN)
- - users (user_id UUID, email VARCHAR, org_id VARCHAR, status ENUM)
-*/
 
 function getContext(req) {
   return {
@@ -181,11 +172,8 @@ router.get("/my-exams", async (req, res) => {
   }
 });
 
-/* -------------------------
-   /start-exam
-   Body: { examId }
-   Creates exam_attempt record with status 'in_progress'
-------------------------- */
+
+
 router.post("/start-exam", async (req, res) => {
   try {
     const { userId, userRole, orgId } = getContext(req);
@@ -195,7 +183,6 @@ router.post("/start-exam", async (req, res) => {
     const { examId } = req.body || {};
     if (!examId) return res.status(400).json({ success: false, message: "examId required" });
 
-    // Verify exam exists and is not deleted
     const examQ = `
       SELECT e.*, ed.start_date, ed.end_date 
       FROM exams e 
@@ -207,12 +194,12 @@ router.post("/start-exam", async (req, res) => {
 
     const exam = rows[0];
     
-    // Verify organization match
+ 
     if (orgId && exam.org_id !== orgId) {
       return res.status(403).json({ success: false, message: "Exam not in your organization" });
     }
 
-    // Check if exam window is active
+    
     const now = new Date();
     if (exam.start_date && new Date(exam.start_date) > now) {
       return res.status(400).json({ success: false, message: "Exam has not started yet" });
@@ -221,7 +208,6 @@ router.post("/start-exam", async (req, res) => {
       return res.status(400).json({ success: false, message: "Exam window has closed" });
     }
 
-    // Check if user already has an attempt
     const findQ = `SELECT attempt_id, status FROM exam_attempt WHERE user_id = $1 AND exam_id = $2 LIMIT 1`;
     const findR = await db.query(findQ, [userId, examId]);
 
@@ -230,7 +216,7 @@ router.post("/start-exam", async (req, res) => {
       if (existing.status === 'completed') {
         return res.status(400).json({ success: false, message: "Exam already completed" });
       }
-      // Update existing attempt to in_progress
+      
       const updateQ = `
         UPDATE exam_attempt
         SET status = 'in_progress', started_at = NOW()
@@ -255,11 +241,6 @@ router.post("/start-exam", async (req, res) => {
   }
 });
 
-/* -------------------------
-   /submit-exam
-   Body: { examId, answers: [{ questionId, answer }] }
-   Calculates score for MCQ exams and updates exam_attempt
-------------------------- */
 router.post("/submit-exam", async (req, res) => {
   try {
     const { userId, userRole } = getContext(req);
@@ -269,7 +250,6 @@ router.post("/submit-exam", async (req, res) => {
     const { examId, answers } = req.body || {};
     if (!examId) return res.status(400).json({ success: false, message: "examId required" });
 
-    // Fetch exam details
     const examQ = `
       SELECT e.type, ed.total_marks 
       FROM exams e 
@@ -282,13 +262,13 @@ router.post("/submit-exam", async (req, res) => {
     const exam = examR.rows[0];
     const examType = String(exam.type || "").toUpperCase();
 
-    // Score computation
+   
     let totalScore = 0;
     let maxScore = exam.total_marks || 0;
     const perQuestion = [];
 
     if (examType === "MCQ" || examType === "MCQS") {
-      // Load all questions with correct answers
+     
       const q = `
         SELECT 
           q.question_id, 
@@ -301,7 +281,6 @@ router.post("/submit-exam", async (req, res) => {
       `;
       const qR = await db.query(q, [examId]);
       
-      // Build map of question_id -> correct option_id
       const questionMap = {};
       qR.rows.forEach((row) => {
         if (!questionMap[row.question_id]) {
@@ -315,13 +294,13 @@ router.post("/submit-exam", async (req, res) => {
         }
       });
 
-      // Build answer map from user's submission
+      
       const answerMap = {};
       (answers || []).forEach((a) => {
-        answerMap[String(a.questionId)] = a.answer; // answer should be option_id
+        answerMap[String(a.questionId)] = a.answer; 
       });
 
-      // Calculate score
+     
       for (const qid in questionMap) {
         const qData = questionMap[qid];
         const userAnswer = answerMap[qid];
@@ -340,15 +319,15 @@ router.post("/submit-exam", async (req, res) => {
         });
       }
     } else {
-      // Coding or other exam types - require manual grading
+     
       totalScore = null;
       maxScore = exam.total_marks || 0;
     }
 
-    // Calculate percentage
+
     const percentage = maxScore > 0 && totalScore !== null ? (totalScore / maxScore) * 100 : null;
 
-    // Update exam_attempt
+
     const findQ = `SELECT attempt_id FROM exam_attempt WHERE user_id = $1 AND exam_id = $2 LIMIT 1`;
     const findR = await db.query(findQ, [userId, examId]);
 
@@ -377,7 +356,7 @@ router.post("/submit-exam", async (req, res) => {
         attempt: u.rows[0]
       });
     } else {
-      // Create new attempt record
+     
       const insertQ = `
         INSERT INTO exam_attempt (user_id, exam_id, status, started_at, ended_at, score, percentage, total_marks)
         VALUES ($1, $2, 'completed', NOW(), NOW(), $3, $4, $5)
@@ -403,11 +382,7 @@ router.post("/submit-exam", async (req, res) => {
   }
 });
 
-/* -------------------------
-   /view-result
-   Query: ?examId=<uuid>
-   Returns user's exam attempt and detailed results
-------------------------- */
+
 router.get("/view-result", async (req, res) => {
   try {
     const { userId } = getContext(req);
@@ -416,7 +391,7 @@ router.get("/view-result", async (req, res) => {
     const examId = req.query.examId;
     if (!examId) return res.status(400).json({ success: false, message: "examId required" });
 
-    // Get user's attempt
+    
     const attemptQ = `
       SELECT 
         ea.*,
@@ -437,12 +412,11 @@ router.get("/view-result", async (req, res) => {
 
     const attempt = attemptR.rows[0];
 
-    // Get detailed breakdown for MCQ exams
     let details = null;
     const examType = String(attempt.exam_type || "").toUpperCase();
     
     if (examType === "MCQ" || examType === "MCQS") {
-      // Get all questions with correct answers
+      
       const q = `
         SELECT 
           q.question_id,
@@ -457,8 +431,7 @@ router.get("/view-result", async (req, res) => {
         ORDER BY q.question_id, mq.option_id
       `;
       const qR = await db.query(q, [examId]);
-      
-      // Group by question
+ 
       const questionsMap = {};
       qR.rows.forEach((row) => {
         if (!questionsMap[row.question_id]) {

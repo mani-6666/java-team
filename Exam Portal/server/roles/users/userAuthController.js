@@ -68,14 +68,10 @@ router.post("/register", async (req, res) => {
 
 
 
-/* ==========================================================
-    LOGIN
-========================================================== */
 router.post("/login", async (req, res) => {
   try {
     const { email, password, loginType } = req.body;
 
-    /* --------------------- ASI Login -------------------- */
     if (loginType === "asi") {
       const asiResult = await pool.query(
         `SELECT * FROM asi_users WHERE email = $1`,
@@ -114,7 +110,6 @@ router.post("/login", async (req, res) => {
       }
     }
 
-    /* --------------------- Normal User Login -------------------- */
     const userResult = await pool.query(
       `SELECT * FROM users WHERE email = $1`,
       [email]

@@ -4,9 +4,7 @@ const db = require("../config/db.js");
 
 const router = express.Router();
 
-/* ===========================================================
-   COMMON HELPERS
-   =========================================================== */
+
 
 function getUser(req) {
   return {
@@ -29,13 +27,11 @@ async function validateUserOrg(userId, orgId) {
   return String(result.rows[0].org_id) === String(orgId);
 }
 
-/* ===========================================================
-   1️⃣ GET ALL STUDY MATERIALS (PAGE LIST)
-   =========================================================== */
+
 
 router.get("/study-materials", async (req, res) => {
   try {
-    const { userId, orgId, role } = getUser(req);
+    const { userId, orgId, role } = getUser(req); // All variables used for auth/validation
 
     if (!userId)
       return res.status(400).json({ success: false, message: "User not authenticated" });
@@ -91,9 +87,7 @@ router.get("/study-materials", async (req, res) => {
   }
 });
 
-/* ===========================================================
-   2️⃣ GET CATEGORY LIST (Dropdown)
-   =========================================================== */
+
 
 router.get("/study-materials/categories", async (req, res) => {
   try {
@@ -118,14 +112,11 @@ router.get("/study-materials/categories", async (req, res) => {
   }
 });
 
-/* ===========================================================
-   3️⃣ VIEW A SINGLE STUDY MATERIAL (View Button)
-   URL: GET /study-materials/:id
-   =========================================================== */
+
 
 router.get("/study-materials/:id", async (req, res) => {
   try {
-    const { userId, orgId, role } = getUser(req);
+    const { userId, orgId, role } = getUser(req); // All variables used for auth/validation
     const materialId = req.params.id;
 
     if (!userId)
