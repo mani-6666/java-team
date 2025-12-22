@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   Users,
-  Activity,
   CheckCircle,
   X,
   UserCheck,
@@ -16,7 +16,6 @@ export default function Superadmin_Dashboard() {
   const API_BASE = "http://localhost:5000/superadmin/dashboard";
 
   const [activeTool, setActiveTool] = useState("impersonate");
-
   const [showImpersonateModal, setShowImpersonateModal] = useState(false);
   const [showOrgModal, setShowOrgModal] = useState(false);
 
@@ -170,48 +169,47 @@ export default function Superadmin_Dashboard() {
         Here’s an overview of your platform’s key metrics and performance.
       </p>
 
-      {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 mt-6">
         {summaryCards.map((item, index) => (
           <div
             key={index}
             className="
               bg-white dark:bg-[#1f2125]
-              rounded-2xl shadow-sm p-6
+              rounded-2xl shadow-sm p-5 sm:p-6
               border border-[#e5e7eb] dark:border-[#2a2c31]
             "
           >
             <div className="flex items-center gap-4">
               <div
                 className="
-                  w-14 h-14 rounded-xl
+                  w-12 h-12 sm:w-14 sm:h-14 rounded-xl
                   bg-[#eef2ff] dark:bg-[#272a35]
-                  flex items-center justify-center
+                  flex items-center justify-center flex-shrink-0
                 "
               >
                 {item.icon}
               </div>
 
-              <div>
-                <h2 className="text-3xl font-bold">{item.value}</h2>
-                <p className="text-gray-600 dark:text-[#9da3ae] text-sm">
+              <div className="min-w-0">
+                <h2 className="text-2xl sm:text-3xl font-bold truncate">
+                  {item.value}
+                </h2>
+                <p className="text-gray-600 dark:text-[#9da3ae] text-xs sm:text-sm">
                   {item.label}
                 </p>
               </div>
             </div>
 
-            <div className="border-b my-4 border-[#eceff5] dark:border-[#2a2c31]"></div>
+            <div className="border-b my-4 border-[#eceff5] dark:border-[#2a2c31]" />
 
-            <p className="text-gray-500 dark:text-[#9da3ae] text-sm">
+            <p className="text-gray-500 dark:text-[#9da3ae] text-xs sm:text-sm">
               {item.sub}
             </p>
           </div>
         ))}
       </div>
 
-      {/* ADMIN TOOLS + SYSTEM STATUS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-        {/* ADMIN TOOLS */}
         <div
           className="
             bg-white dark:bg-[#1f2125]
@@ -219,7 +217,9 @@ export default function Superadmin_Dashboard() {
             border border-[#e5e7eb] dark:border-[#2a2c31]
           "
         >
-          <h2 className="text-lg font-semibold mb-4">Admin Tools</h2>
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">
+            Admin Tools
+          </h2>
 
           {[
             { key: "impersonate", label: "Impersonate Admin" },
@@ -229,7 +229,7 @@ export default function Superadmin_Dashboard() {
             <button
               key={btn.key}
               onClick={() => handleToolClick(btn.key)}
-              className={`w-full py-2.5 rounded-lg font-medium mb-3 text-sm transition ${
+              className={`w-full py-2.5 rounded-lg font-medium mb-3 text-xs sm:text-sm transition ${
                 activeTool === btn.key
                   ? "bg-[#4f6df5] text-white"
                   : "bg-white dark:bg-[#272a35] border border-gray-300 dark:border-[#34363c] text-gray-700 dark:text-[#c7c7c7] hover:bg-gray-50 dark:hover:bg-[#30333a]"
@@ -240,7 +240,6 @@ export default function Superadmin_Dashboard() {
           ))}
         </div>
 
-        {/* WEBSITE STATUS */}
         <div
           className="
             bg-white dark:bg-[#1f2125]
@@ -248,33 +247,39 @@ export default function Superadmin_Dashboard() {
             border border-[#e5e7eb] dark:border-[#2a2c31]
           "
         >
-          <h2 className="text-xl font-semibold mb-6">
+          <h2 className="text-lg sm:text-xl font-semibold mb-6">
             Website & Subscription Overview
           </h2>
 
-          <div className="flex justify-between mb-6">
-            <p className="text-[17px] font-semibold">Website Status:</p>
-            <div className="inline-flex items-center gap-2 bg-[#eef2ff] dark:bg-[#272a35] px-3 py-1.5 rounded-full text-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+            <p className="text-[15px] sm:text-[17px] font-semibold">
+              Website Status:
+            </p>
+            <div className="inline-flex items-center gap-2 bg-[#eef2ff] dark:bg-[#272a35] px-3 py-1.5 rounded-full text-xs sm:text-sm">
               <CheckCircle size={16} className="text-[#4f6df5]" />
               Operational
             </div>
           </div>
 
-          <div className="flex justify-between mb-6">
-            <p className="text-[17px] font-semibold">Subscription System:</p>
-            <div className="inline-flex items-center gap-2 bg-[#e6fbe7] dark:bg-[#1d3523] px-3 py-1.5 rounded-full text-sm">
-              <CheckCircle size={16} className="text-green-600 dark:text-green-300" />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+            <p className="text-[15px] sm:text-[17px] font-semibold">
+              Subscription System:
+            </p>
+            <div className="inline-flex items-center gap-2 bg-[#e6fbe7] dark:bg-[#1d3523] px-3 py-1.5 rounded-full text-xs sm:text-sm">
+              <CheckCircle
+                size={16}
+                className="text-green-600 dark:text-green-300"
+              />
               Active
             </div>
           </div>
 
-          <p className="text-gray-600 dark:text-[#9da3ae] text-[15px]">
+          <p className="text-gray-600 dark:text-[#9da3ae] text-sm sm:text-[15px]">
             All core systems are running smoothly. No critical issues detected.
           </p>
         </div>
       </div>
 
-      {/* CLIENTS TABLE */}
       <div
         className="
           bg-white dark:bg-[#1f2125]
@@ -284,14 +289,25 @@ export default function Superadmin_Dashboard() {
         "
       >
         <div className="mb-4">
-          <h2 className="text-xl font-semibold">All Clients</h2>
-          <p className="text-gray-600 dark:text-[#9da3ae] text-sm">
+          <h2 className="text-lg sm:text-xl font-semibold">All Clients</h2>
+          <p className="text-gray-600 dark:text-[#9da3ae] text-xs sm:text-sm">
             Manage and monitor all client organizations
           </p>
         </div>
 
-        {/* DESKTOP TABLE */}
-        <div className="hidden sm:block mt-3">
+        {/* MOBILE HEADINGS BAR */}
+        <div className="sm:hidden mt-3 overflow-x-auto">
+          <div className="min-w-[640px] bg-[#e8edff] dark:bg-[#23262b] text-[#4f6df5] text-xs font-semibold flex">
+            <div className="py-2 px-4 w-1/6">Organization</div>
+            <div className="py-2 px-4 w-1/6">Subscription Plan</div>
+            <div className="py-2 px-4 w-1/6">Users</div>
+            <div className="py-2 px-4 w-1/6">Exam</div>
+            <div className="py-2 px-4 w-1/6">Revenue</div>
+            <div className="py-2 px-4 w-1/6">Status</div>
+          </div>
+        </div>
+
+        <div className="hidden sm:block mt-3 overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="bg-[#e8edff] dark:bg-[#23262b] text-[#4f6df5]">
@@ -327,7 +343,6 @@ export default function Superadmin_Dashboard() {
           </table>
         </div>
 
-        {/* MOBILE CARDS */}
         <div className="sm:hidden grid gap-3 mt-4">
           {clientsData.map((c, i) => (
             <div
@@ -346,7 +361,8 @@ export default function Superadmin_Dashboard() {
               </div>
 
               <p className="text-[11px] mb-2">
-                Plan: <span className="font-medium">{c.subscriptionPlan}</span>
+                Plan:{" "}
+                <span className="font-medium">{c.subscriptionPlan}</span>
               </p>
 
               <div className="grid grid-cols-3 gap-2 text-[11px]">
@@ -368,20 +384,17 @@ export default function Superadmin_Dashboard() {
         </div>
       </div>
 
-      {/* ------------------ MODALS ------------------ */}
-
-      {/* Impersonate Admin Modal */}
       {showImpersonateModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-3">
           <div
             className="
               bg-white dark:bg-[#1f2125]
               text-black dark:text-white
-              rounded-2xl w-[92%] sm:w-[520px] p-6 relative
+              rounded-2xl w-full max-w-[520px] p-6 relative
               border border-gray-200 dark:border-[#2a2c31]
             "
           >
-            <h2 className="text-xl font-semibold text-[#4f6df5] dark:text-[#8095ff]">
+            <h2 className="text-lg sm:text-xl font-semibold text-[#4f6df5] dark:text-[#8095ff]">
               Impersonate Admin
             </h2>
 
@@ -392,13 +405,13 @@ export default function Superadmin_Dashboard() {
             />
 
             <div className="mt-5">
-              <label className="block text-gray-600 dark:text-gray-300">
+              <label className="block text-gray-600 dark:text-gray-300 text-sm">
                 Full Name
               </label>
               <input
                 type="text"
                 className="
-                  w-full border p-3 rounded-lg mt-2
+                  w-full border p-3 rounded-lg mt-2 text-sm
                   bg-white dark:bg-[#272a35]
                   border-gray-300 dark:border-[#34363c]
                   text-black dark:text-white
@@ -412,13 +425,13 @@ export default function Superadmin_Dashboard() {
                 }
               />
 
-              <label className="block mt-4 text-gray-600 dark:text-gray-300">
+              <label className="block mt-4 text-gray-600 dark:text-gray-300 text-sm">
                 Email
               </label>
               <input
                 type="email"
                 className="
-                  w-full border p-3 rounded-lg mt-2
+                  w-full border p-3 rounded-lg mt-2 text-sm
                   bg-white dark:bg-[#272a35]
                   border-gray-300 dark:border-[#34363c]
                   text-black dark:text-white
@@ -432,13 +445,13 @@ export default function Superadmin_Dashboard() {
                 }
               />
 
-              <label className="block mt-4 text-gray-600 dark:text-gray-300">
+              <label className="block mt-4 text-gray-600 dark:text-gray-300 text-sm">
                 Phone
               </label>
               <input
                 type="text"
                 className="
-                  w-full border p-3 rounded-lg mt-2
+                  w-full border p-3 rounded-lg mt-2 text-sm
                   bg-white dark:bg-[#272a35]
                   border-gray-300 dark:border-[#34363c]
                   text-black dark:text-white
@@ -454,7 +467,7 @@ export default function Superadmin_Dashboard() {
 
               <button
                 onClick={handleSaveImpersonate}
-                className="block mx-auto mt-6 bg-[#4f6df5] text-white py-2.5 px-8 rounded-lg"
+                className="block mx-auto mt-6 bg-[#4f6df5] text-white py-2.5 px-8 rounded-lg text-sm sm:text-base"
               >
                 Save
               </button>
@@ -463,18 +476,17 @@ export default function Superadmin_Dashboard() {
         </div>
       )}
 
-      {/* Manage Organizations Modal */}
       {showOrgModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-3">
           <div
             className="
               bg-white dark:bg-[#1f2125]
               text-black dark:text-white
-              rounded-2xl w-[92%] sm:w-[520px] p-6 relative
+              rounded-2xl w-full max-w-[520px] p-6 relative
               border border-gray-200 dark:border-[#2a2c31]
             "
           >
-            <h2 className="text-xl font-semibold text-[#4f6df5] dark:text-[#8095ff]">
+            <h2 className="text-lg sm:text-xl font-semibold text-[#4f6df5] dark:text-[#8095ff]">
               Manage Organizations
             </h2>
 
@@ -485,13 +497,13 @@ export default function Superadmin_Dashboard() {
             />
 
             <div className="mt-5">
-              <label className="block text-gray-600 dark:text-gray-300">
+              <label className="block text-gray-600 dark:text-gray-300 text-sm">
                 Full Name
               </label>
               <input
                 type="text"
                 className="
-                  w-full border p-3 rounded-lg mt-2
+                  w-full border p-3 rounded-lg mt-2 text-sm
                   bg-white dark:bg-[#272a35]
                   border-gray-300 dark:border-[#34363c]
                   text-black dark:text-white
@@ -502,12 +514,12 @@ export default function Superadmin_Dashboard() {
                 }
               />
 
-              <label className="block mt-4 text-gray-600 dark:text-gray-300">
+              <label className="block mt-4 text-gray-600 dark:text-gray-300 text-sm">
                 Description
               </label>
               <textarea
                 className="
-                  w-full border p-3 rounded-lg mt-2 h-28
+                  w-full border p-3 rounded-lg mt-2 h-28 text-sm
                   bg-white dark:bg-[#272a35]
                   border-gray-300 dark:border-[#34363c]
                   text-black dark:text-white
@@ -520,7 +532,7 @@ export default function Superadmin_Dashboard() {
 
               <button
                 onClick={handleSaveOrg}
-                className="block mx-auto mt-6 bg-[#4f6df5] text-white py-2.5 px-8 rounded-lg"
+                className="block mx-auto mt-6 bg-[#4f6df5] text-white py-2.5 px-8 rounded-lg text-sm sm:text-base"
               >
                 Save
               </button>

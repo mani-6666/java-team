@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import {
@@ -22,8 +21,10 @@ const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
       <div
-        className="rounded-xl px-3 py-2 shadow-xl"
         style={{
+          borderRadius: 12,
+          padding: "8px 12px",
+          boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
           background: "#4f6df5",
           color: "white",
           fontSize: 12,
@@ -31,7 +32,7 @@ const CustomTooltip = ({ active, payload, label }) => {
         }}
       >
         <div>{payload[0].value} rs</div>
-        <div className="text-[11px] opacity-90">{label} 2025</div>
+        <div style={{ fontSize: 11, opacity: 0.9 }}>{label} 2025</div>
       </div>
     );
   }
@@ -48,28 +49,24 @@ export default function Superadmin_Revenue() {
   const [pieData, setPieData] = useState([]);
   const [examTrend, setExamTrend] = useState([]);
 
-  /* -------------- FETCH COMPLETE REVENUE API -------------- */
   const fetchRevenue = async () => {
     try {
       const res = await axios.get(API);
 
-      // revenue line
-      const revenueLine = res.data.monthlyRevenue.map((i) => ({
+      const revenueLine = (res.data.monthlyRevenue || []).map((i) => ({
         month: i.month,
         revenue: Number(i.revenue),
         transaction: Number(i.transactions),
       }));
 
-      // pie chart
-      const pieArr = Object.entries(res.data.subscriptionTypes).map(
+      const pieArr = Object.entries(res.data.subscriptionTypes || {}).map(
         ([name, value]) => ({
           name,
           value: Number(value),
         })
       );
 
-      // exam trend from backend
-      const examMapped = res.data.examTrend.map((i) => ({
+      const examMapped = (res.data.examTrend || []).map((i) => ({
         month: i.month,
         MCQS: Number(i.mcqs),
         Coding: Number(i.coding),
@@ -79,7 +76,6 @@ export default function Superadmin_Revenue() {
       setMonthly(revenueLine);
       setPieData(pieArr);
       setExamTrend(examMapped);
-
     } catch (err) {
       console.log("Revenue error:", err);
     }
@@ -95,40 +91,31 @@ export default function Superadmin_Revenue() {
   }, [fromDate, toDate, monthly]);
 
   return (
-    <div className="pb-10 px-4 md:px-2">
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-        Analytics
-      </h1>
-      <p className="text-gray-500 dark:text-gray-400 mb-6">
-        Detailed revenue insights and trends
-      </p>
+    <div className="pb-10 px-4 md:px-2 w-full">
+      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Analytics</h1>
+      <p className="text-gray-500 dark:text-gray-400 mb-6">Detailed revenue insights and trends</p>
 
-      <div className="bg-white dark:bg-[#111] rounded-2xl shadow border dark:border-gray-700 p-4 md:p-6">
+      <div className="bg-white dark:bg-[#111] rounded-2xl shadow border dark:border-gray-700 p-4 md:p-6 w-full">
 
-        {/* ------------------ TOP FILTER BAR ------------------ */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-          <h2 className="text-[17px] font-semibold text-gray-800 dark:text-white">
-            Balance Analytics
-          </h2>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4 w-full">
+          <h2 className="text-[17px] font-semibold text-gray-800 dark:text-white">Balance Analytics</h2>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="flex flex-col">
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+            <div className="flex flex-col w-full sm:w-auto">
               <label className="text-xs text-gray-500 dark:text-gray-300">From</label>
               <input
                 type="date"
-                className="border px-2 py-1 rounded-md bg-white text-black
-                dark:bg-[#1f2125] dark:text-white dark:border-[#3a3d44]"
+                className="border px-2 py-1 rounded-md bg-white text-black dark:bg-[#1f2125] dark:text-white dark:border-[#3a3d44] w-full"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
               />
             </div>
 
-            <div className="flex flex-col">
+            <div className="flex flex-col w-full sm:w-auto">
               <label className="text-xs text-gray-500 dark:text-gray-300">To</label>
               <input
                 type="date"
-                className="border px-2 py-1 rounded-md bg-white text-black
-                dark:bg-[#1f2125] dark:text-white dark:border-[#3a3d44]"
+                className="border px-2 py-1 rounded-md bg-white text-black dark:bg-[#1f2125] dark:text-white dark:border-[#3a3d44] w-full"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
               />
@@ -136,7 +123,6 @@ export default function Superadmin_Revenue() {
           </div>
         </div>
 
-        {/* ------------------ AREA CHART ------------------ */}
         <div className="w-full h-[260px] sm:h-[320px] md:h-[360px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={filteredLineData}>
@@ -163,27 +149,25 @@ export default function Superadmin_Revenue() {
           </ResponsiveContainer>
         </div>
 
-        {/* ------------------ BOTTOM GRID ------------------ */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-7">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-7 w-full">
 
-          {/* ---------------- EXAM ATTEMPTS TREND ---------------- */}
-          <div className="bg-white dark:bg-[#111] p-4 md:p-5 rounded-2xl border shadow lg:col-span-2 min-h-[320px]">
-            <div className="flex items-center justify-between">
-              <div>
+          <div className="bg-white dark:bg-[#111] p-4 md:p-5 rounded-2xl border shadow lg:col-span-2 min-h-[320px] w-full overflow-hidden">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-3">
+              <div className="w-full sm:w-auto">
                 <h3 className="text-lg font-semibold dark:text-white">Exam Attempts Trend</h3>
                 <p className="text-gray-500 text-sm">Insight into monthly exam activity.</p>
               </div>
 
-              <div className="flex gap-4 text-sm font-medium">
-                <div className="flex items-center gap-2">
+              <div className="flex gap-3 text-sm font-medium flex-wrap items-center sm:justify-end">
+                <div className="flex items-center gap-2 whitespace-nowrap">
                   <span className="w-3 h-3 bg-[#4f6df5] rounded-full"></span>
                   <span className="dark:text-white">MCQS</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 whitespace-nowrap">
                   <span className="w-3 h-3 bg-[#ff3b88] rounded-full"></span>
                   <span className="dark:text-white">Coding</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 whitespace-nowrap">
                   <span className="w-3 h-3 bg-[#22c55e] rounded-full"></span>
                   <span className="dark:text-white">Descriptive</span>
                 </div>
@@ -191,7 +175,7 @@ export default function Superadmin_Revenue() {
             </div>
 
             <div className="w-full h-[260px] mt-3">
-              <ResponsiveContainer>
+              <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={examTrend}>
                   <CartesianGrid strokeDasharray="3 10" stroke="#eee" />
                   <XAxis dataKey="month" />
@@ -206,19 +190,16 @@ export default function Superadmin_Revenue() {
             </div>
           </div>
 
-          {/* ---------------- PIE CHART ---------------- */}
-          <div className="bg-white dark:bg-[#111] p-6 rounded-2xl border shadow min-h-[320px] flex flex-col">
-            <h3 className="text-[18px] font-semibold mb-4 text-gray-900 dark:text-white">
-              Subscription Types
-            </h3>
+          <div className="bg-white dark:bg-[#111] p-6 rounded-2xl border shadow min-h-[320px] flex flex-col w-full">
+            <h3 className="text-[18px] font-semibold mb-4 text-gray-900 dark:text-white">Subscription Types</h3>
 
-            <div className="flex justify-center mb-4">
-              <div className="w-[140px] h-[140px]">
-                <ResponsiveContainer>
+            <div className="flex justify-center mb-4 w-full">
+              <div className="w-full h-44 max-w-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={pieData} dataKey="value" outerRadius="80%" innerRadius="55%">
                       {pieData.map((entry, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i]} />
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                       ))}
                     </Pie>
 
@@ -228,10 +209,7 @@ export default function Superadmin_Revenue() {
                       textAnchor="middle"
                       dominantBaseline="middle"
                       className="fill-black dark:fill-white"
-                      style={{
-                        fontSize: "22px",
-                        fontWeight: 600,
-                      }}
+                      style={{ fontSize: 22, fontWeight: 600 }}
                     >
                       {pieData.reduce((acc, v) => acc + v.value, 0)}
                     </text>
@@ -240,20 +218,15 @@ export default function Superadmin_Revenue() {
               </div>
             </div>
 
-            <div className="mt-4 space-y-4">
+            <div className="mt-4 space-y-4 w-full">
               {pieData.map((item, i) => (
-                <div
-                  key={i}
-                  className="flex justify-between border-t border-dashed border-gray-300 dark:border-gray-700 pt-3 text-gray-900 dark:text-white"
-                >
+                <div key={i} className="flex justify-between border-t border-dashed border-gray-300 dark:border-gray-700 pt-3 text-gray-900 dark:text-white w-full">
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full" style={{ background: PIE_COLORS[i] }} />
+                    <span className="w-3 h-3 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
                     <span>{item.name}</span>
                   </div>
 
-                  <span className="font-semibold">
-                    {String(item.value).padStart(2, "0")}
-                  </span>
+                  <span className="font-semibold">{String(item.value).padStart(2, "0")}</span>
                 </div>
               ))}
             </div>

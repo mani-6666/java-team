@@ -18,21 +18,17 @@ export default function Superadmin_Users() {
 
   const [selectedType, setSelectedType] = useState("All");
   const [openDropdown, setOpenDropdown] = useState(false);
-
   const [searchText, setSearchText] = useState("");
-
   const [activeUsers, setActiveUsers] = useState([]);
   const [orgUsers, setOrgUsers] = useState([]);
   const [dailyAccess, setDailyAccess] = useState([]);
 
-  /* ---------- FETCH DATA FROM BACKEND ---------- */
   const fetchData = async () => {
     try {
       const res = await axios.get(API);
-
-      setActiveUsers(res.data.activeUsers);
-      setOrgUsers(res.data.organizationUsers);
-      setDailyAccess(res.data.dailyAccess);
+      setActiveUsers(res.data.activeUsers || []);
+      setOrgUsers(res.data.organizationUsers || []);
+      setDailyAccess(res.data.dailyAccess || []);
     } catch (err) {
       console.log("Users analytics error:", err);
     }
@@ -42,7 +38,6 @@ export default function Superadmin_Users() {
     fetchData();
   }, []);
 
-  /* ---------- ACTIVE USERS GRAPH MAP ---------- */
   const activeUsersMapped = useMemo(() => {
     if (selectedType === "All") {
       return activeUsers.map((i) => ({
@@ -52,7 +47,6 @@ export default function Superadmin_Users() {
         user: Number(i.users),
       }));
     }
-
     return activeUsers.map((i) => ({
       month: i.month,
       value:
@@ -64,55 +58,41 @@ export default function Superadmin_Users() {
     }));
   }, [selectedType, activeUsers]);
 
-  /* ---------- ORG SEARCH FILTER ---------- */
   const filteredOrgs = orgUsers.filter((o) =>
     o.org.toLowerCase().includes(searchText.toLowerCase())
   );
 
-  /* ---------- DAILY LOGIN GRAPH MAP ---------- */
   const dailyMapped = dailyAccess.map((i) => ({
     day: i.date,
     value: Number(i.count),
   }));
 
   return (
-    <div className="pb-10 px-4">
-      {/* PAGE TITLE */}
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-        Users
-      </h1>
-      <p className="text-gray-500 dark:text-gray-400 mb-6">
-        Manage users activity
-      </p>
+    <div className="pb-10 px-4 w-full">
+      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Users</h1>
+      <p className="text-gray-500 dark:text-gray-400 mb-6">Manage users activity</p>
 
-      {/* ROW 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* ACTIVE USERS */}
-        <div className="bg-white dark:bg-[#111] p-5 rounded-2xl shadow border">
-          <div className="flex items-center justify-between mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+        <div className="bg-white dark:bg-[#111] p-5 rounded-2xl shadow border w-full">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3 w-full">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
               Number of Active Users
             </h2>
 
-            {/* DROPDOWN */}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <button
                 onClick={() => setOpenDropdown(!openDropdown)}
-                className="flex items-center justify-between gap-2 px-4 py-2 bg-gray-100 dark:bg-[#1f2125] rounded-lg w-32"
+                className="flex items-center justify-between gap-2 px-4 py-2 bg-gray-100 dark:bg-[#1f2125] rounded-lg w-full sm:w-32"
               >
-                <span className="text-black dark:text-white">
-                  {selectedType}
-                </span>
+                <span className="text-black dark:text-white">{selectedType}</span>
                 <ChevronDown
                   size={18}
-                  className={`transition ${
-                    openDropdown ? "rotate-180" : ""
-                  } text-black dark:text-white`}
+                  className={`transition ${openDropdown ? "rotate-180" : ""} text-black dark:text-white`}
                 />
               </button>
 
               {openDropdown && (
-                <div className="absolute mt-2 w-32 bg-white dark:bg-[#1f2125] shadow-xl border rounded-lg z-[1000]">
+                <div className="absolute mt-2 left-0 sm:right-0 w-full sm:w-32 bg-white dark:bg-[#1f2125] shadow-xl border rounded-lg z-[1000]">
                   {["All", "Admins", "Invigilators", "Students"].map((opt) => (
                     <div
                       key={opt}
@@ -130,7 +110,6 @@ export default function Superadmin_Users() {
             </div>
           </div>
 
-          {/* GRAPH */}
           <div className="w-full h-[260px] sm:h-[300px] md:h-[340px]">
             <ResponsiveContainer width="100%" height="100%">
               {selectedType === "All" ? (
@@ -139,7 +118,6 @@ export default function Superadmin_Users() {
                   <XAxis dataKey="month" tick={{ fill: "#ccc" }} />
                   <YAxis tick={{ fill: "#ccc" }} />
                   <Tooltip />
-
                   <Line dataKey="admin" stroke="#3366ff" strokeWidth={3} />
                   <Line dataKey="invigilator" stroke="#33cc99" strokeWidth={3} />
                   <Line dataKey="user" stroke="#ff3399" strokeWidth={3} />
@@ -157,18 +135,14 @@ export default function Superadmin_Users() {
           </div>
         </div>
 
-        {/* ORG USERS */}
-        <div className="bg-white dark:bg-[#111] p-5 rounded-2xl shadow border">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white dark:bg-[#111] p-5 rounded-2xl shadow border w-full">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3 w-full">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
               Organization User Count
             </h2>
 
             <div className="relative w-full sm:w-72">
-              <Search
-                size={18}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 placeholder="Search Organization..."
                 value={searchText}
@@ -178,18 +152,18 @@ export default function Superadmin_Users() {
             </div>
           </div>
 
-          <div className="space-y-5">
+          <div className="space-y-5 w-full">
             {filteredOrgs.map((i) => (
-              <div key={i.org}>
+              <div key={i.org} className="w-full">
                 <div className="flex justify-between text-sm mb-1 text-black dark:text-white">
                   <span>{i.org}</span>
                   <span className="font-semibold">{i.users}</span>
                 </div>
 
-                <div className="h-2 bg-gray-300 dark:bg-gray-700 rounded-full">
+                <div className="h-2 bg-gray-300 dark:bg-gray-700 rounded-full w-full">
                   <div
                     className="h-full bg-[#4f6df5] rounded-full"
-                    style={{ width: `${(i.users / 350) * 100}%` }}
+                    style={{ width: `${Math.min(100, (i.users / 350) * 100)}%` }}
                   ></div>
                 </div>
               </div>
@@ -198,8 +172,7 @@ export default function Superadmin_Users() {
         </div>
       </div>
 
-      {/* DAILY LOGINS */}
-      <div className="bg-white dark:bg-[#111] p-5 rounded-2xl shadow border mt-6">
+      <div className="bg-white dark:bg-[#111] p-5 rounded-2xl shadow border mt-6 w-full">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
           User Access (Daily Logins)
         </h2>
