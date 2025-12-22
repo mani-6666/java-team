@@ -2,15 +2,16 @@ const pool = require("../config/db");
 const express = require("express");
 const router = express.Router();
 
-const bcrypt = require("bcryptjs");
-const transporter = require("../config/mail");
+const bcrypt = require("../utils/bcrypt");
+const {sendMail} = require("../utils/mailservice");
+
 
 
 router.post("/invigilators", async (req, res) => {
 
   try {
-    const adminId = "56ca5a8a-3ad3-4466-ab21-b00f871fc462";
-    const orgId ="ORG001";
+    const adminId = req.user.id;
+    const orgId =req.user.organizationId;
 
     const { name, email, mobile, gender, age } = req.body;
 
@@ -31,7 +32,7 @@ router.post("/invigilators", async (req, res) => {
     }
 
     const rawPassword = generateRandomPassword(10);
-    const passwordHash = await bcrypt.hash(rawPassword, 10);
+    const passwordHash = await bcrypt.hashPassword(rawPassword);
 
     const userResult = await pool.query(
       `INSERT INTO mainexamportal.asi_users (email, password_hash, role, org_id, status, created_at, is_deleted)
@@ -48,11 +49,10 @@ router.post("/invigilators", async (req, res) => {
       [asiId, name, mobile || null, age || null, gender || null, adminId]
     );
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your Invigilator Account Credentials",
-      html: `
+    await sendMail(
+      email,
+       "Your Invigilator Account Credentials",
+       `
         <h3>Welcome to ExamPortal!</h3>
         <p>Hello <b>${name}</b>,</p>
         <p>Your invigilator account has been created successfully.</p>
@@ -62,7 +62,7 @@ router.post("/invigilators", async (req, res) => {
         <br/>
         <p>Regards,<br>ExamMarkPro Team</p>
       `
-    });
+    );
 
     await pool.query("COMMIT");
 
@@ -86,42 +86,16 @@ router.post("/invigilators", async (req, res) => {
 
 router.get("/", async (req, res) => {
   try {
-    // const orgId = req.user.organizationId;
-    const orgId="ORG001";
-    const { search = "", status = "", role = "all" } = req.query;
+    const orgId = req.user.organizationId;
 
     let query = `
-      SELECT 
-        id, name, email, status, enroll_date,
-        age, gender, phone
-      FROM mainexamportal.users_details
-      WHERE organization_id = $1
-    `;
+      SELECT u.user_id AS id, ud.name, u.email, ud.mobile, 'student' AS role FROM mainexamportal.users u 
+      JOIN mainexamportal.user_details ud ON u.user_id = ud.user_id WHERE u.org_id = $1 AND u.is_deleted = false
+       UNION ALL 
+       SELECT au.asi_id AS id, ad.name, au.email, ad.mobile, au.role FROM mainexamportal.asi_users au 
+       JOIN mainexamportal.asi_details ad ON au.asi_id = ad.asi_id WHERE au.org_id = $1 AND au.role = 'invigilator' AND au.is_deleted = false;`;
 
-    const params = [orgId];
-    let i = 2;
-
-    if (role !== "all") {
-      query += ` AND role = $${i}`;
-      params.push(role.toLowerCase());
-      i++;
-    }
-
-    if (search) {
-      query += ` AND (LOWER(name) LIKE $${i} OR LOWER(email) LIKE $${i})`;
-      params.push(`%${search.toLowerCase()}%`);
-      i++;
-    }
-
-    if (status) {
-      query += ` AND status = $${i}`;
-      params.push(status.toLowerCase());
-      i++;
-    }
-
-    query += ` ORDER BY enroll_date DESC`;
-
-    const result = await pool.query(query, params);
+    const result = await pool.query(query,[orgId]);
 
     res.json({
       success: true,
@@ -141,10 +115,10 @@ router.get("/:id", async (req, res) => {
 
     const query = `
       SELECT 
-        id, name, email, role, status, enroll_date,
+        user_id, name, email, role, status, enroll_date,
         age, gender, phone,
-      FROM users
-      WHERE id=$1 AND organization_id=$2
+      FROM mainexamportal.users
+      WHERE user_id=$1 AND org_id=$2
     `;
 
     const result = await pool.query(query, [userId, orgId]);
@@ -156,7 +130,7 @@ router.get("/:id", async (req, res) => {
     const user = result.rows[0];
 
     let userData = {
-      id: user.id,
+      id: user.user_id,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -181,7 +155,7 @@ router.delete("/:id", async (req, res) => {
     const userId = req.params.id;
 
     const check = await pool.query(
-      `SELECT role FROM users WHERE id=$1 AND organization_id=$2`,
+      `SELECT role FROM mainexamportal.users WHERE id=$1 AND org_id=$2`,
       [userId, orgId]
     );
 
@@ -194,7 +168,7 @@ router.delete("/:id", async (req, res) => {
     }
 
     await pool.query(
-      `DELETE FROM users WHERE id=$1 AND organization_id=$2`,
+      `DELETE FROM mainexamportal.users WHERE id=$1 AND org_id=$2`,
       [userId, orgId]
     );
 
@@ -212,53 +186,5 @@ function generateRandomPassword(length = 10) {
   }
   return password;
 }
-
-// router.get("/stats/cards", async (req, res) => {
-//   try {
-//     const orgId = req.user.organizationId;
-
-//     const stats = await pool.query(
-//       `
-//       SELECT
-//         (SELECT COUNT(*) 
-//          FROM users 
-//          WHERE organization_id=$1) AS total_users,
-
-//         (SELECT COUNT(*) 
-//          FROM users 
-//          WHERE organization_id=$1 AND role='student') AS students,
-
-//         (SELECT COUNT(*) 
-//          FROM users 
-//          WHERE organization_id=$1 AND role='invigilator') AS invigilators,
-
-//         (SELECT COUNT(DISTINCT us.user_id)
-//           FROM user_sessions us
-//           JOIN users u ON u.id = us.user_id
-//           WHERE u.organization_id = $1
-//           AND us.is_online = true
-//         )  AS active_users
-//       `,
-//       [orgId]
-//     );
-
-//     const row = stats.rows[0];
-
-//     res.json({
-//       success: true,
-//       cards: {
-//         total_users: row.total_users,
-//         total_students: row.students,
-//         total_invigilators: row.invigilators,
-//         active_users: row.active_users
-//       }
-//     });
-
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// });
-
-
 
 module.exports = router;
