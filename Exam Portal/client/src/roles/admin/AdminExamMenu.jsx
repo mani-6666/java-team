@@ -1,44 +1,28 @@
-
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "../adminComponents/AdminLayout";
-import {
-  Eye,
-  Pencil,
-  Trash2,
-  Plus,
-  FileText,
-  BarChart3,
-  Calendar,
-} from "lucide-react";
+import { Eye, Pencil, Trash2, X, CalendarDays } from "lucide-react";
 
-const API_BASE = "/api/exams";
+const API_BASE = import.meta.env.VITE_API_BASE_URL + "/admin/exams";
 
 export default function AdminExamMenu() {
   const navigate = useNavigate();
 
-  const [cards, setCards] = useState([
-    { label: "Total Exams", value: 0, icon: FileText, color: "bg-blue-500" },
-    { label: "Active Exams", value: 0, icon: BarChart3, color: "bg-emerald-500" },
-    { label: "Scheduled", value: 0, icon: Calendar, color: "bg-amber-500" },
-    { label: "Completed", value: 0, icon: FileText, color: "bg-violet-500" },
-  ]);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortOrder, setSortOrder] = useState(null);
-
-  const toggleSort = () => {
-    if (sortOrder === null) setSortOrder("asc");
-    else if (sortOrder === "asc") setSortOrder("desc");
-    else setSortOrder(null);
-  };
-
   const [exams, setExams] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState("All");
+  const [searchDate, setSearchDate] = useState("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedExam, setSelectedExam] = useState(null);
 
   const [newExam, setNewExam] = useState({
     title: "",
+    description: "",
     type: [],
     duration: "",
     q: "",
@@ -48,391 +32,515 @@ export default function AdminExamMenu() {
     negative: "None",
   });
 
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedExam, setSelectedExam] = useState(null);
+  const resetForm = () => {
+    setNewExam({
+      title: "",
+      description: "",
+      type: [],
+      duration: "",
+      q: "",
+      startDate: "",
+      endDate: "",
+      totalMarks: "",
+      negative: "None",
+    });
+  };
 
-  const fetchExams = async () => {
-    setLoading(true);
+  const fetchExams = useCallback(async () => {
     try {
-      const res = await fetch(API_BASE);
+      setLoading(true);
+      const res = await fetch(API_BASE, { credentials: "include" });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const json = await res.json();
-      setExams(json.data || []);
-    } catch (e) {
-      setError("Failed to load exams");
+
+      if (json.success) {
+        setExams(
+          json.data.map((e) => ({
+            id: e.id,
+            title: e.title,
+            description: e.description || "",
+            type: e.type,
+            duration: e.duration_min,
+            q: e.total_questions,
+            status: capitalize(e.status),
+            attempts: e.attemptcount || 0,
+            avg: `${Math.round(e.avg || 0)}%`,
+            startDate: e.start_date,
+            endDate: e.end_date,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error(err); 
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
-
-  const fetchCards = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/stats/cards`);
-      const json = await res.json();
-      setCards([
-        { label: "Total Exams", value: json.cards.total_exams, icon: FileText, color: "bg-blue-500" },
-        { label: "Active Exams", value: json.cards.active_exams, icon: BarChart3, color: "bg-emerald-500" },
-        { label: "Scheduled", value: json.cards.scheduled_exams, icon: Calendar, color: "bg-amber-500" },
-        { label: "Completed", value: json.cards.completed_exams, icon: FileText, color: "bg-violet-500" },
-      ]);
-    } catch {}
-  };
+  }, []);
 
   useEffect(() => {
     fetchExams();
-    fetchCards();
-  }, []);
+  }, [fetchExams]);
 
   const createExam = async () => {
     if (!newExam.title || !newExam.duration || !newExam.q) {
-      alert("Please fill required fields");
+      alert("Please fill all required fields");
       return;
     }
 
     const payload = {
       title: newExam.title,
-      type: newExam.type.length ? newExam.type.join(", ") : "MCQs",
-      description: "",
+      description: newExam.description,
+      type: newExam.type.join(","),
+      duration: Number(newExam.duration),
+      questions: Number(newExam.q),
       startDate: newExam.startDate,
       endDate: newExam.endDate,
-      duration: Number(newExam.duration),
-      totalMarks: newExam.totalMarks || 0,
-      negative: newExam.negative,
+      totalMarks: Number(newExam.totalMarks || 0),
+      negativeMarking: newExam.negative,
+      invigilatorId: null,
+      invigilatorName: null,
     };
 
     try {
       const res = await fetch(API_BASE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
+      if (!res.ok) {
+        throw new Error("Create exam failed");
+      }
+
       const json = await res.json();
-      setExams((prev) => [json.data, ...prev]);
+      if (!json.success) {
+        alert(json.message || "Exam creation failed");
+        return;
+      }
+
       setShowCreateModal(false);
-
-      setNewExam({
-        title: "",
-        type: [],
-        duration: "",
-        q: "",
-        startDate: "",
-        endDate: "",
-        totalMarks: "",
-        negative: "None",
-      });
-
-      fetchCards();
+      resetForm();
+      fetchExams();
     } catch (err) {
-      alert("Error creating exam");
+      console.error(err);
+      alert("Server error");
     }
   };
 
   const confirmDelete = async () => {
-    await fetch(`${API_BASE}/${selectedExam.id}`, { method: "DELETE" });
-    setExams(exams.filter((e) => e.id !== selectedExam.id));
-    setShowDeleteModal(false);
+    try {
+      const res = await fetch(`${API_BASE}/${selectedExam.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        throw new Error("Delete failed");
+      }
+
+      setShowDeleteModal(false);
+      fetchExams();
+    } catch (err) {
+      console.error(err); 
+      alert("Delete failed");
+    }
   };
 
-  const filtered = exams;
+  const filtered = exams.filter((e) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      (e.title.toLowerCase().includes(q) ||
+        e.type.toLowerCase().includes(q) ||
+        e.status.toLowerCase().includes(q)) &&
+      (filterType === "All" || e.type.includes(filterType)) &&
+      (!searchDate || e.startDate === searchDate || e.endDate === searchDate)
+    );
+  });
+
+  const todayISO = new Date().toISOString().slice(0, 10);
 
   return (
     <AdminLayout>
-      <main className="p-4 sm:p-7 text-gray-900 dark:text-white">
+      <main className="px-1">
 
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-semibold dark:text-white">Exam Menu</h1>
+     
+        <div className="mb-6 flex flex-col sm:flex-row sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-semibold">Exam Menu</h1>
+            <p className="text-xs sm:text-sm text-gray-500">
+              Manage and monitor all exams
+            </p>
+          </div>
 
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            className="px-4 py-2 bg-blue-600 text-white rounded-xl"
           >
-            <Plus size={18} /> Create Exam
+            Create Exam
           </button>
         </div>
 
-        {/* CARD STATS */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          {cards.map((c, i) => {
-            const Icon = c.icon;
-            return (
-              <div key={i} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow flex flex-col gap-2">
-                <div className={`p-2 rounded-lg text-white ${c.color} w-fit`}>
-                  <Icon size={20} />
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-300">{c.label}</p>
-                <p className="text-2xl font-semibold dark:text-white">{c.value}</p>
+    
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <input
+            className="px-4 py-2 border rounded-xl"
+            placeholder="Search exams..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+
+          <select
+            className="px-4 py-2 border rounded-xl"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+          >
+            <option value="All">All Types</option>
+            <option value="MCQs">MCQs</option>
+            <option value="Descriptive">Descriptive</option>
+            <option value="Coding">Coding</option>
+          </select>
+
+          <div className="relative">
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className="w-full px-4 py-2 border rounded-xl flex justify-between items-center"
+            >
+              {searchDate || "Today"} <CalendarDays size={18} />
+            </button>
+
+            {showDatePicker && (
+              <div className="absolute mt-2 bg-white border p-3 rounded-xl w-full z-10">
+                <input
+                  type="date"
+                  className="border p-2 w-full"
+                  value={searchDate}
+                  onChange={(e) => {
+                    setSearchDate(e.target.value);
+                    setShowDatePicker(false);
+                  }}
+                />
+                <button
+                  className="mt-2 w-full bg-blue-100 rounded p-2"
+                  onClick={() => {
+                    setSearchDate(todayISO);
+                    setShowDatePicker(false);
+                  }}
+                >
+                  Today
+                </button>
               </div>
-            );
-          })}
+            )}
+          </div>
         </div>
 
-        {/* TABLE */}
-        <div className="rounded-xl border border-gray-300 dark:border-gray-700 overflow-x-auto">
-          <table className="min-w-full text-sm dark:text-white">
-           
-           <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs uppercase">
-  <tr>
-    <th className="p-3 text-left">Title</th>
-    <th className="p-3">Type</th>
-    <th className="p-3">Duration</th>
-    <th className="p-3">Questions</th>
-    <th className="p-3">Attempts</th>
-    <th className="p-3">Avg Score</th>
-    <th className="p-3">Status</th>
-    <th className="p-3">Actions</th>
-  </tr>
-</thead>
+        <div className="overflow-x-auto border rounded-xl bg-white">
+          <table className="w-full text-sm min-w-[900px]">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="p-3 text-left">Title</th>
+                <th>Type</th>
+                <th>Duration</th>
+                <th>Questions</th>
+                <th>Status</th>
+                <th>Attempts</th>
+                <th>Avg</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
 
-<tbody>
-  {filtered.map((e) => (
-    <tr key={e.id} className="border-t border-gray-300 dark:border-gray-700">
-      <td className="p-3">{e.title}</td>
-      <td className="p-3 text-center">{e.type}</td>
-      <td className="p-3 text-center">{e.duration} min</td>
-
-      {/* QUESTIONS */}
-      <td className="p-3 text-center">{e.questions || e.q || "—"}</td>
-
-      {/* ATTEMPTS */}
-      <td className="p-3 text-center">{e.attempts || 0}</td>
-
-      {/* AVERAGE SCORE */}
-      <td className="p-3 text-center">{e.avg_score || "0%"}</td>
-
-      {/* STATUS */}
-      <td className="p-3 text-center">{e.status}</td>
-
-      {/* ACTIONS */}
-      <td className="p-3 flex gap-3 justify-center">
-        <Eye className="text-blue-500 cursor-pointer" />
-        <Pencil className="text-green-500 cursor-pointer" />
-        <Trash2
-          className="text-red-500 cursor-pointer"
-          onClick={() => {
-            setSelectedExam(e);
-            setShowDeleteModal(true);
-          }}
-        />
-      </td>
-    </tr>
-  ))}
-</tbody>
-
-
-
-
+            <tbody>
+              {loading ? (
+                <tr><td colSpan="8" className="p-6 text-center">Loading…</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan="8" className="p-6 text-center">No exams</td></tr>
+              ) : (
+                filtered.map((e) => (
+                  <tr
+                    key={e.id ?? `${e.title}-${e.startDate}`}
+                    className="border-t"
+                  >
+                    <td className="p-3">{e.title}</td>
+                    <td>{e.type}</td>
+                    <td>{e.duration} min</td>
+                    <td>{e.q}</td>
+                    <td><StatusPill status={e.status} /></td>
+                    <td>{e.attempts}</td>
+                    <td>{e.avg}</td>
+                    <td className="flex gap-4 p-3 justify-center">
+                      <Eye onClick={() => { setSelectedExam(e); setShowViewModal(true); }} />
+                      <Pencil onClick={() => navigate(`/admin/exam-management?id=${e.id}`)} />
+                      <Trash2 className="text-red-600" onClick={() => { setSelectedExam(e); setShowDeleteModal(true); }} />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
           </table>
         </div>
 
-        {/* CREATE EXAM POPUP */}
+        {showViewModal && (
+          <Modal title="Exam Details" onClose={() => setShowViewModal(false)}>
+            <ExamDetails exam={selectedExam} />
+          </Modal>
+        )}
+
+        {showDeleteModal && (
+          <Modal title="Delete Exam" onClose={() => setShowDeleteModal(false)}>
+            <DeleteConfirm selectedExam={selectedExam} onDelete={confirmDelete} />
+          </Modal>
+        )}
+
         {showCreateModal && (
-          <ResponsiveModal title="Create Exam" onClose={() => setShowCreateModal(false)}>
+          <Modal title="Create Exam" onClose={() => setShowCreateModal(false)}>
             <CreateExamForm
               newExam={newExam}
               setNewExam={setNewExam}
               createExam={createExam}
-              onClose={() => setShowCreateModal(false)}
+              onClose={() => {
+                resetForm();
+                setShowCreateModal(false);
+              }}
             />
-          </ResponsiveModal>
-        )}
-
-        {/* DELETE POPUP */}
-        {showDeleteModal && (
-          <ResponsiveModal title="Delete Exam" onClose={() => setShowDeleteModal(false)}>
-            <p className="text-gray-700 dark:text-gray-300 mb-4">
-              Are you sure you want to delete this exam?
-            </p>
-
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 border border-gray-400 dark:border-gray-600 rounded-lg dark:text-white"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg"
-              >
-                Delete
-              </button>
-            </div>
-          </ResponsiveModal>
+          </Modal>
         )}
 
       </main>
     </AdminLayout>
   );
 }
+const capitalize = (s = "") =>
+  s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 
-/* ======================================================
-   INLINE POPUP COMPONENTS (DARK MODE ENABLED)
-   ====================================================== */
+function StatusPill({ status }) {
+  const map = {
+    Active: "bg-green-100 text-green-700",
+    Upcoming: "bg-yellow-100 text-yellow-700",
+    Completed: "bg-blue-100 text-blue-700",
+  };
 
-function ResponsiveModal({ title, children, onClose }) {
+  const cls = map[status] ?? "bg-gray-100 text-gray-700"; 
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-center">
-      <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl w-[90%] sm:w-[520px] max-h-[90vh] overflow-y-auto relative shadow-xl dark:text-white">
+    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${cls}`}>
+      {status}
+    </span>
+  );
+}
 
-        <button
-          className="absolute top-4 right-4 text-gray-600 dark:text-gray-300 text-xl"
-          onClick={onClose}
-        >
-          ✕
-        </button>
-
-        <h2 className="text-xl font-semibold dark:text-white mb-1">{title}</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-          Define the details for your new exam.
-        </p>
-
+function Modal({ title, children, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+      <div className="bg-white p-4 sm:p-6 rounded-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between mb-4">
+          <h2 className="font-semibold">{title}</h2>
+          <X onClick={onClose} />
+        </div>
         {children}
       </div>
     </div>
   );
 }
+
+function ExamDetails({ exam }) {
+  if (!exam) return null;
+  return (
+    <div className="space-y-2 text-sm">
+      <p><b>Title:</b> {exam.title}</p>
+      <p><b>Type:</b> {exam.type}</p>
+      <p><b>Duration:</b> {exam.duration} min</p>
+      <p><b>Questions:</b> {exam.q}</p>
+      <p><b>Start:</b> {exam.startDate}</p>
+      <p><b>End:</b> {exam.endDate}</p>
+    </div>
+  );
+}
+
+function DeleteConfirm({ selectedExam, onDelete }) {
+  if (!selectedExam) return null;
+  return (
+    <>
+      <p>Delete <b>{selectedExam.title}</b>?</p>
+      <div className="flex justify-end mt-4">
+        <button
+          className="px-4 py-2 bg-red-600 text-white rounded"
+          onClick={onDelete}
+        >
+          Delete
+        </button>
+      </div>
+    </>
+  );
+}
+
 function CreateExamForm({ newExam, setNewExam, createExam, onClose }) {
-
-  const input =
-    "w-full p-2 border rounded-lg mt-1 bg-white dark:bg-gray-800 " +
-    "text-gray-900 dark:text-white border-gray-300 dark:border-gray-600";
-
-  const label = "text-sm font-medium text-gray-700 dark:text-gray-200";
+  const input = "w-full px-4 py-2 border rounded-lg text-sm";
 
   return (
     <div className="space-y-4">
 
-      {/* Exam Title */}
-      <div>
-        <label className={label}>Exam Name</label>
+      <p className="text-sm text-gray-500">
+        Define the details for your new exam. Click create when you're done.
+      </p>
+
+      <div className="space-y-1">
+        <label className="text-sm font-medium">Exam Title</label>
         <input
           className={input}
-          placeholder="Enter exam name"
+          placeholder="Mathematics Exam"
           value={newExam.title}
-          onChange={(e) => setNewExam({ ...newExam, title: e.target.value })}
+          onChange={(e) =>
+            setNewExam({ ...newExam, title: e.target.value })
+          }
         />
       </div>
 
-      {/* Exam Type */}
-      <div>
-        <label className={label}>Exam Type</label>
-        <select
-          className={input}
-          value={newExam.type[0] || ""}
-          onChange={(e) => setNewExam({ ...newExam, type: [e.target.value] })}
-        >
-          <option value="">Select Type</option>
-          <option value="MCQs">MCQs</option>
-          <option value="Descriptive">Descriptive</option>
-          <option value="Coding">Coding</option>
-       
-        </select>
-      </div>
-
-      {/* Description */}
-      <div>
-        <label className={label}>Description</label>
+      <div className="space-y-1">
         <textarea
-          rows="3"
-          placeholder="Write a short description..."
-          className={input}
+          className={`${input} resize-none`}
+          rows={3}
+          placeholder="Description"
           value={newExam.description}
-          onChange={(e) => setNewExam({ ...newExam, description: e.target.value })}
+          onChange={(e) =>
+            setNewExam({ ...newExam, description: e.target.value })
+          }
         />
       </div>
 
-      {/* Duration */}
-      <div>
-        <label className={label}>Duration (in minutes)</label>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Exam Type</label>
+        <div className="flex gap-6 text-sm">
+          {["MCQs", "Descriptive", "Coding"].map((t) => (
+            <label key={t} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={newExam.type.includes(t)}
+                onChange={() =>
+                  setNewExam((prev) => ({
+                    ...prev,
+                    type: prev.type.includes(t)
+                      ? prev.type.filter((x) => x !== t)
+                      : [...prev.type, t],
+                  }))
+                }
+              />
+              {t}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-sm font-medium">Assign Invigilator</label>
+        <input
+          className={input}
+          placeholder="Michel Brown"
+          value={newExam.invigilatorName || ""}
+          onChange={(e) =>
+            setNewExam({ ...newExam, invigilatorName: e.target.value })
+          }
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-sm font-medium">Duration (min)</label>
         <input
           type="number"
           className={input}
-          placeholder="Example: 90"
+          placeholder="120"
           value={newExam.duration}
-          onChange={(e) => setNewExam({ ...newExam, duration: e.target.value })}
+          onChange={(e) =>
+            setNewExam({ ...newExam, duration: e.target.value })
+          }
         />
       </div>
 
-      {/* Start & End Dates */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className={label}>Start Date</label>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Start Date</label>
           <input
             type="date"
             className={input}
             value={newExam.startDate}
-            onChange={(e) => setNewExam({ ...newExam, startDate: e.target.value })}
+            onChange={(e) =>
+              setNewExam({ ...newExam, startDate: e.target.value })
+            }
           />
         </div>
 
-        <div>
-          <label className={label}>End Date</label>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">End Date</label>
           <input
             type="date"
             className={input}
             value={newExam.endDate}
-            onChange={(e) => setNewExam({ ...newExam, endDate: e.target.value })}
+            onChange={(e) =>
+              setNewExam({ ...newExam, endDate: e.target.value })
+            }
           />
         </div>
       </div>
 
-      {/* Questions */}
-      <div>
-        <label className={label}>Total Questions</label>
+      <div className="space-y-1">
+        <label className="text-sm font-medium">Number of Questions</label>
         <input
           type="number"
           className={input}
-          placeholder="Example: 50"
+          placeholder="50"
           value={newExam.q}
-          onChange={(e) => setNewExam({ ...newExam, q: e.target.value })}
+          onChange={(e) =>
+            setNewExam({ ...newExam, q: e.target.value })
+          }
         />
       </div>
 
-      {/* Total Marks */}
-      <div>
-        <label className={label}>Total Marks</label>
+      <div className="space-y-1">
+        <label className="text-sm font-medium">Total Marks</label>
         <input
           type="number"
           className={input}
-          placeholder="Example: 100"
+          placeholder="100"
           value={newExam.totalMarks}
-          onChange={(e) => setNewExam({ ...newExam, totalMarks: e.target.value })}
+          onChange={(e) =>
+            setNewExam({ ...newExam, totalMarks: e.target.value })
+          }
         />
       </div>
 
-      {/* Negative Marking */}
-      <div>
-        <label className={label}>Negative Marking</label>
+      <div className="space-y-1">
+        <label className="text-sm font-medium">Negative Marking</label>
         <select
           className={input}
           value={newExam.negative}
-          onChange={(e) => setNewExam({ ...newExam, negative: e.target.value })}
+          onChange={(e) =>
+            setNewExam({ ...newExam, negative: e.target.value })
+          }
         >
           <option value="None">None</option>
-          <option value="1/4 (25%)">1/4 (25%)</option>
-          <option value="1/3 (33%)">1/3 (33%)</option>
-          <option value="1/2 (50%)">1/2 (50%)</option>
+          <option value="1/3">1/3 (33%)</option>
+          <option value="1/4">1/4 (25%)</option>
+          <option value="1/2">1/2 (50%)</option>
         </select>
       </div>
 
-      {/* Buttons */}
-      <div className="flex justify-end gap-4 pt-4">
+      <div className="flex justify-end gap-3 pt-4">
         <button
+          className="px-4 py-2 border rounded-lg text-sm"
           onClick={onClose}
-          className="px-4 py-2 border rounded-lg border-gray-400 dark:border-gray-600 dark:text-white"
         >
           Cancel
         </button>
-
         <button
           onClick={createExam}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm"
         >
           Create Exam
         </button>
       </div>
-
     </div>
   );
 }

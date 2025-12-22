@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-
 import {
-  GraduationCap ,
+  GraduationCap,
   LayoutDashboard,
   FileText,
   Users,
@@ -13,9 +12,9 @@ import {
   Menu,
   X,
   Bell,
-  Trash2,
-  Check,
-} from "lucide-react"; 
+} from "lucide-react";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL + "/api/admin";
 
 export default function AdminLayout({ children }) {
   const { pathname } = useLocation();
@@ -23,7 +22,6 @@ export default function AdminLayout({ children }) {
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
   const [openNotif, setOpenNotif] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [logoutConfirm, setLogoutConfirm] = useState(false);
 
   const [notifications, setNotifications] = useState([]);
   const notifRef = useRef(null);
@@ -31,42 +29,118 @@ export default function AdminLayout({ children }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
-  const defaultProfile = {
-    name: "Admin",
-    email: "admin@example.com",
-    phone: "9124590865",
-    age: 35,
-    address: "123 Admin St, City, Country",
-    password: "Admin@123",
-  };
+  const [loadedProfile, setLoadedProfile] = useState(null);
 
   const [profileForm, setProfileForm] = useState({
-    name: defaultProfile.name,
-    email: defaultProfile.email,
-    phone: defaultProfile.phone,
-    age: defaultProfile.age,
-    address: defaultProfile.address,
+    full_name: "",
+    email: "",
+    phone: "",
+    gender: "",
+    age: "",
+    address: "",
     currentPassword: "",
     newPassword: "",
     confirmNewPassword: "",
   });
 
-  const [loadedProfile, setLoadedProfile] = useState(defaultProfile);
+  useEffect(() => {
+    async function fetchProfile() {
+      try {
+        const res = await fetch(`${API_BASE}/profile`);
+        if (!res.ok) throw new Error(res.statusText);
+
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message);
+
+        const p = data.profile;
+        setLoadedProfile(p);
+
+        setProfileForm({
+          full_name: p.full_name || "",
+          email: p.email || "",
+          phone: p.phone || "",
+          gender: p.gender || "",
+          age: p.age || "",
+          address: p.address || "",
+          currentPassword: "",
+          newPassword: "",
+          confirmNewPassword: "",
+        });
+      } catch (err) {
+        if (import.meta.env.DEV) console.error("Profile fetch error:", err);
+      }
+    }
+    fetchProfile();
+  }, []);
+
+  async function saveProfileToServer(form) {
+    try {
+      const payload = {
+        full_name: form.full_name,
+        email: form.email,
+        phone: form.phone,
+        gender: form.gender,
+        age: form.age,
+        address: form.address,
+      };
+
+      if (form.newPassword) payload.password = form.newPassword;
+
+      const res = await fetch(`${API_BASE}/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error(res.statusText);
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+
+      return data.profile;
+    } catch (err) {
+      if (import.meta.env.DEV) console.error("Save profile error:", err);
+      return null;
+    }
+  }
 
   useEffect(() => {
-    const savedNotifs = JSON.parse(localStorage.getItem("admin_notifications") || "[]");
-    setNotifications(Array.isArray(savedNotifs) ? savedNotifs : []);
-
-    const savedProfile = JSON.parse(localStorage.getItem("admin_profile") || "null");
-    if (savedProfile && typeof savedProfile === "object") {
-      setLoadedProfile(savedProfile);
-      setProfileForm((p) => ({ ...p, ...savedProfile }));
-    } else {
-      localStorage.setItem("admin_profile", JSON.stringify(defaultProfile));
-      setLoadedProfile(defaultProfile);
-      setProfileForm((p) => ({ ...p, ...defaultProfile }));
-    }
+    const saved = JSON.parse(localStorage.getItem("admin_notifications") || "[]");
+    setNotifications(saved);
   }, []);
+
+  const saveNotifications = (arr) => {
+    setNotifications(arr);
+    localStorage.setItem("admin_notifications", JSON.stringify(arr));
+  };
+
+  const addNotification = ({ message, type = "info" }) => {
+    const n = {
+      id: Date.now() + Math.random(),
+      type,
+      message,
+      read: false,
+      time: new Date().toISOString(),
+    };
+    saveNotifications([n, ...notifications]);
+  };
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const markToggle = (id) =>
+    saveNotifications(
+      notifications.map((n) =>
+        n.id === id ? { ...n, read: !n.read } : n
+      )
+    );
+
+  const deleteNotif = (id) =>
+    saveNotifications(notifications.filter((n) => n.id !== id));
+
+  const markAllRead = () =>
+    saveNotifications(notifications.map((n) => ({ ...n, read: true })));
+
+  const clearAll = () => saveNotifications([]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -81,53 +155,18 @@ export default function AdminLayout({ children }) {
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const saveNotifications = (list) => {
-    setNotifications(list);
-    localStorage.setItem("admin_notifications", JSON.stringify(list));
-  };
-  const addNotification = ({ message, type = "info" }) => {
-    const n = {
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      type,
-      message,
-      read: false,
-      time: new Date().toISOString(),
-    };
-    saveNotifications([n, ...notifications]);
-  };
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const formatTime = (iso) => {
-    try {
-      return new Date(iso).toLocaleString();
-    } catch {
-      return iso;
-    }
-  };
-
-  const markToggle = (id) => {
-    saveNotifications(notifications.map((n) => (n.id === id ? { ...n, read: !n.read } : n)));
-  };
-
-  const deleteNotif = (id) => {
-    saveNotifications(notifications.filter((n) => n.id !== id));
-  };
-
-  const markAllRead = () => {
-    saveNotifications(notifications.map((n) => ({ ...n, read: true })));
-  };
-
-  const clearAll = () => {
-    saveNotifications([]);
-  };
 
   const openProfile = () => {
     setProfileForm({
-      ...loadedProfile,
+      full_name: loadedProfile?.full_name || "",
+      email: loadedProfile?.email || "",
+      phone: loadedProfile?.phone || "",
+      gender: loadedProfile?.gender || "",
+      age: loadedProfile?.age || "",
+      address: loadedProfile?.address || "",
       currentPassword: "",
       newPassword: "",
       confirmNewPassword: "",
@@ -139,12 +178,6 @@ export default function AdminLayout({ children }) {
   const closeProfile = () => {
     setProfileOpen(false);
     setEditMode(false);
-    setProfileForm((p) => ({
-      ...p,
-      currentPassword: "",
-      newPassword: "",
-      confirmNewPassword: "",
-    }));
   };
 
   const handleProfileChange = (e) => {
@@ -152,15 +185,41 @@ export default function AdminLayout({ children }) {
     setProfileForm((p) => ({ ...p, [name]: value }));
   };
 
-  const validatePasswordStrength = (pwd) => {
-    const lengthOK = pwd.length >= 8;
-    const upperOK = /[A-Z]/.test(pwd);
-    const lowerOK = /[a-z]/.test(pwd);
-    const digitOK = /[0-9]/.test(pwd);
-    const specialOK = /[!@#$%^&*()?_\-+=~`[\]{}|;:"',.<>/\\]/.test(pwd);
-    return {
-      ok: lengthOK && upperOK && lowerOK && digitOK && specialOK,
-    };
+  const handleSaveProfile = async () => {
+    if (!profileForm.full_name.trim()) {
+      addNotification({ message: "Name cannot be empty", type: "error" });
+      return;
+    }
+    if (!profileForm.email.includes("@")) {
+      addNotification({ message: "Enter valid email", type: "error" });
+      return;
+    }
+    if (profileForm.phone.length < 10) {
+      addNotification({ message: "Phone number too short", type: "error" });
+      return;
+    }
+
+    const wantsPassword =
+      profileForm.currentPassword ||
+      profileForm.newPassword ||
+      profileForm.confirmNewPassword;
+
+    if (wantsPassword) {
+      if (profileForm.newPassword !== profileForm.confirmNewPassword) {
+        addNotification({ message: "Passwords do not match", type: "error" });
+        return;
+      }
+    }
+
+    const ok = await saveProfileToServer(profileForm);
+    if (!ok) {
+      addNotification({ message: "Failed to update profile", type: "error" });
+      return;
+    }
+
+    addNotification({ message: "Profile updated successfully", type: "info" });
+    setLoadedProfile(profileForm);
+    setEditMode(false);
   };
 
   const menuItems = [
@@ -172,96 +231,80 @@ export default function AdminLayout({ children }) {
     { id: "/admin/analytics", label: "Analytics & Reports", icon: <BarChart2 size={20} /> },
     { id: "/admin/chat", label: "Chatbox", icon: <MessageSquare size={20} /> },
   ];
+
   return (
-    <div
-      className={`min-h-screen flex overflow-hidden transition-all duration-300
-      ${theme === "dark" ? "dark bg-[#020202] text-white" : "bg-gray-100 text-black"}`}
-    >
+    <div className={`min-h-screen flex overflow-hidden ${theme === "dark" ? "dark bg-[#020202] text-white" : "bg-gray-100"}`}>
       <div
-        className={`
-          fixed top-0 left-0 h-screen w-64 backdrop-blur-xl
-          bg-white/70 dark:bg-[#0a0a0a]/70 border-r border-white/30 dark:border-gray-800
-          shadow-[0_8px_30px_rgb(0,0,0,0.12)] 
-          px-6 py-6 z-40 transition-transform duration-300
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-          md:translate-x-0
-        `}
+        className={`fixed top-0 left-0 h-screen w-64 bg-white/70 dark:bg-[#0a0a0a]/70 backdrop-blur-xl 
+        border-r dark:border-gray-800 shadow px-6 py-6 z-40 transition-transform duration-300
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
         <div className="md:hidden flex justify-end mb-4">
           <button
             onClick={() => setSidebarOpen(false)}
-            className="p-2 bg-gray-200 dark:bg-gray-700 rounded-lg shadow hover:scale-105 transition"
+            className="p-2 bg-gray-200 dark:bg-gray-700 rounded-lg"
           >
             <X size={22} className="text-[#4f6df5]" />
           </button>
         </div>
 
-        <div className="text-[23px] font-bold text-[#4f6df5] mb-9 tracking-wide flex items-center gap-2">
-  <GraduationCap size={26} className="text-[#4f6df5]" />
-  <span className="drop-shadow">ExamMarkPro</span>
-</div>
-
-
-        <div className="flex flex-col gap-3">
-          {menuItems.map((item) => {
-            const active = pathname === item.id;
-            return (
-              <Link
-                key={item.id}
-                to={item.id}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-[15px] font-medium group transition-all
-                  ${
-                    active
-                      ? "bg-[#E8EDFF] dark:bg-[#1a2447] text-[#4f6df5] shadow-inner"
-                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800/60"
-                  }
-                `}
-              >
-                <div className="group-hover:scale-110 transition-transform">{item.icon}</div>
-                <span className="text-gray-800 dark:text-gray-200">{item.label}</span>
-              </Link>
-            );
-          })}
+        <div className="text-[23px] font-bold text-[#4f6df5] mb-9 flex items-center gap-2">
+          <GraduationCap size={26} />
+          ExamMarkPro
         </div>
 
-        <div className="mt-auto pt-6 border-t border-gray-300/60 dark:border-gray-700/60">
-          <button
-            className="flex items-center gap-2 text-[15px] font-medium text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition"
-          >
+        <div className="flex flex-col gap-3">
+          {menuItems.map((item) => (
+            <Link
+              key={item.id}
+              to={item.id}
+              onClick={() => setSidebarOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-[15px]
+              ${
+                pathname === item.id
+                  ? "bg-[#E8EDFF] dark:bg-[#1a2447] text-[#4f6df5]"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800/60"
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="mt-auto pt-6 border-t dark:border-gray-700">
+          <button className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-red-600">
             <LogOut size={18} />
-            <span>Logout</span>
+            Logout
           </button>
         </div>
       </div>
 
+      
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 bg-black/40 backdrop-blur-xs md:hidden z-30"
+          className="fixed inset-0 bg-black/40 md:hidden z-30"
         />
       )}
 
-      <div className="flex-1 flex flex-col md:ml-64 overflow-y-auto dark:bg-[#050505] transition-all">
-        <div
-          className="
-            w-full h-16 px-4 sm:px-6 flex items-center justify-between
-            bg-white/80 dark:bg-[#0d0d0d]/80 backdrop-blur-xl 
-            border-b border-gray-200 dark:border-gray-800
-            shadow-[0_4px_20px_rgb(0,0,0,0.08)]
-            sticky top-0 z-40
-          "
-        >
+
+      <div className="flex-1 flex flex-col md:ml-64 overflow-y-auto dark:bg-[#050505]">
+    
+        <div className="h-16 px-4 bg-white/80 dark:bg-[#0d0d0d]/80 backdrop-blur-xl 
+          border-b dark:border-gray-800 shadow flex items-center justify-between sticky top-0 z-40">
+
           <button
             onClick={() => setSidebarOpen(true)}
-            className="md:hidden p-2 rounded-lg bg-gray-200 dark:bg-gray-800 hover:scale-105 transition"
+            className="md:hidden p-2 bg-gray-200 dark:bg-gray-800 rounded-lg"
           >
             <Menu size={24} className="text-[#4f6df5]" />
           </button>
 
           <div />
 
-          <div className="flex items-center gap-5 sm:gap-7">
+          <div className="flex items-center gap-6">
+   
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
@@ -269,353 +312,221 @@ export default function AdminLayout({ children }) {
                 onChange={() => setTheme(theme === "light" ? "dark" : "light")}
                 className="sr-only peer"
               />
-              <div
-                className="
-                w-12 h-6 bg-gray-300 dark:bg-gray-600 peer-checked:bg-[#4f6df5]
-                rounded-full transition-all
-              "
-              />
-              <div
-                className="
-                absolute w-5 h-5 bg-white rounded-full top-0.5 left-0.5
-                transition-all peer-checked:translate-x-6 shadow
-              "
-              />
+              <div className="w-12 h-6 bg-gray-300 dark:bg-gray-600 peer-checked:bg-[#4f6df5] rounded-full" />
+              <div className="absolute w-5 h-5 bg-white rounded-full left-0.5 top-0.5 transition-all peer-checked:translate-x-6" />
             </label>
-
             <div ref={notifRef} className="relative">
               <button
                 onClick={() => setOpenNotif((p) => !p)}
-                className="relative flex items-center justify-center hover:scale-110 transition"
+                className="relative hover:scale-110"
               >
-                <Bell size={22} className="text-black dark:text-white" />
-
+                <Bell size={22} />
                 {unreadCount > 0 && (
-                  <span
-                    className="
-                      absolute -top-2 -right-2 bg-red-600 text-white w-4 h-4
-                      rounded-full text-[10px] flex items-center justify-center shadow
-                    "
-                  >
+                  <span className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center">
                     {unreadCount}
                   </span>
                 )}
               </button>
-              {openNotif && (
-                <div
-                  className="
-                    absolute right-0 mt-3 w-80 sm:w-96 max-h-[60vh] overflow-y-auto
-                    bg-white/90 dark:bg-[#0e0f10]/90 backdrop-blur-xl
-                    shadow-2xl rounded-2xl p-4 border border-gray-200 dark:border-[#2b2b2b]
-                    animate-fadeIn z-50
-                  "
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-semibold text-black dark:text-white">Notifications</h2>
 
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={markAllRead}
-                        className="text-sm text-[#4f6df5] hover:underline hover:scale-105 transition"
-                      >
-                        Mark all read
+              {openNotif && (
+                <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-[#0e0f10] 
+                  rounded-xl shadow-xl border dark:border-gray-800 p-4 max-h-[60vh] overflow-y-auto">
+
+                  <div className="flex justify-between mb-2">
+                    <h2 className="font-semibold">Notifications</h2>
+                    <div className="flex gap-3">
+                      <button onClick={markAllRead} className="text-sm text-blue-600">
+                        Mark all
                       </button>
-                      <button
-                        onClick={clearAll}
-                        className="text-sm text-red-600 hover:underline hover:scale-105 transition"
-                      >
-                        Clear all
+                      <button onClick={clearAll} className="text-sm text-red-600">
+                        Clear
                       </button>
                     </div>
                   </div>
 
                   {notifications.length === 0 ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-300 py-4 text-center">No notifications</p>
+                    <p className="text-center text-sm text-gray-500">No notifications</p>
                   ) : (
-                    <div className="space-y-3">
-                      {notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className={`
-                            flex items-start gap-3 p-3 rounded-xl border transition-all
-                            ${n.read ? "bg-white/40 dark:bg-[#111]/40 border-transparent" : "bg-[#eef2ff]/70 dark:bg-[#182132]/70 border-[#4f6df5]/20 shadow"}
-                          `}
-                        >
-                          <div className="w-10 h-10 rounded-full bg-[#ebf0ff] dark:bg-[#1d2437] flex items-center justify-center shrink-0 shadow-inner">
-                            <Bell size={18} className="text-[#4f6df5]" />
-                          </div>
+                    notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className={`p-3 rounded-xl border mb-2 flex gap-3 ${
+                          n.read
+                            ? "bg-white/40 dark:bg-[#222]/40"
+                            : "bg-[#eef2ff] dark:bg-[#182132]"
+                        }`}
+                      >
+                        <Bell size={18} className="text-[#4f6df5]" />
 
-                          <div className="flex-1">
-                            <p className={`text-sm ${!n.read ? "font-semibold" : ""} text-black dark:text-white`}>{n.message}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatTime(n.time)}</p>
-                          </div>
-
-                          <div className="flex flex-col items-end gap-2">
-                            <button onClick={() => markToggle(n.id)} className="text-xs text-[#4f6df5] hover:underline hover:scale-105 transition">
-                              {n.read ? "Unread" : "Read"}
-                            </button>
-
-                            <button onClick={() => deleteNotif(n.id)} className="text-xs text-red-600 hover:underline hover:scale-105 transition">
-                              Delete
-                            </button>
-                          </div>
+                        <div className="flex-1">
+                          <p className={n.read ? "" : "font-semibold"}>
+                            {n.message}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(n.time).toLocaleString()}
+                          </p>
                         </div>
-                      ))}
-                    </div>
+
+                        <div className="flex flex-col gap-1">
+                          <button
+                            className="text-xs text-blue-600"
+                            onClick={() => markToggle(n.id)}
+                          >
+                            {n.read ? "Unread" : "Read"}
+                          </button>
+                          <button
+                            className="text-xs text-red-600"
+                            onClick={() => deleteNotif(n.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
               )}
             </div>
 
+          
             <img
               src="https://i.pravatar.cc/300"
-              alt="profile"
               onClick={openProfile}
-              className="
-                w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shadow-lg cursor-pointer
-                hover:scale-110 transition
-              "
+              className="w-10 h-10 rounded-full cursor-pointer hover:scale-110 transition shadow"
+              alt="profile"
             />
           </div>
         </div>
 
         <main className="p-4 sm:p-6">{children}</main>
       </div>
+
       {profileOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-[999] p-4 animate-fadeIn">
-          <div
-            className="
-              w-full max-w-full sm:max-w-lg md:max-w-2xl
-              bg-white dark:bg-[#0e0e0e]
-              rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800
-              overflow-hidden
-            "
-          >
-          
-            <div className="max-h-[85vh] overflow-y-auto">
-           
-              <div
-                className="
-                  px-4 sm:px-6 py-4 flex items-center justify-between
-                  border-b border-gray-200 dark:border-gray-700
-                  bg-white/60 dark:bg-white/5 backdrop-blur-xl
-                "
-              >
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Profile</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Manage your account details</p>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[999]">
+          <div className="bg-white dark:bg-[#1a1a1a] w-[90%] max-w-lg rounded-2xl shadow-xl p-6 relative max-h-[90vh] overflow-y-auto">
+
+            <button
+              onClick={closeProfile}
+              className="absolute right-4 top-4 p-2 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-full"
+            >
+              <X size={22} />
+            </button>
+
+            <h2 className="text-2xl font-semibold text-center mb-5">
+              Admin Profile
+            </h2>
+
+            <div className="flex justify-center mb-6">
+              <img
+                src="https://i.pravatar.cc/300"
+                className="w-28 h-28 rounded-full border-4 border-[#4f6df5]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {["full_name", "email", "phone", "gender", "age"].map((field) => (
+                <div key={field}>
+                  <label className="text-sm capitalize">
+                    {field.replace("_", " ")}
+                  </label>
+                  <input
+                    name={field}
+                    disabled={!editMode}
+                    value={profileForm[field]}
+                    onChange={handleProfileChange}
+                    className={`w-full mt-1 p-2 rounded-lg outline-none transition ${
+                      editMode
+                        ? "bg-gray-100 dark:bg-gray-700 border border-blue-500"
+                        : "bg-gray-200 dark:bg-[#2a2a2a] opacity-70"
+                    }`}
+                  />
                 </div>
+              ))}
 
-                <button onClick={closeProfile} className="p-2 rounded-lg hover:bg-gray-200/50 dark:hover:bg-gray-800/50 transition">
-                  <X size={18} className="text-gray-700 dark:text-gray-200" />
+              <div>
+                <label className="text-sm">Address</label>
+                <textarea
+                  name="address"
+                  disabled={!editMode}
+                  value={profileForm.address}
+                  onChange={handleProfileChange}
+                  className={`w-full mt-1 p-2 rounded-lg outline-none transition ${
+                    editMode
+                      ? "bg-gray-100 dark:bg-gray-700 border border-blue-500"
+                      : "bg-gray-200 dark:bg-[#2a2a2a] opacity-70"
+                  }`}
+                />
+              </div>
+
+              {editMode && (
+                <>
+                  <div>
+                    <label className="text-sm">Current Password</label>
+                    <input
+                      type="password"
+                      name="currentPassword"
+                      value={profileForm.currentPassword}
+                      onChange={handleProfileChange}
+                      className="w-full mt-1 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm">New Password</label>
+                    <input
+                      type="password"
+                      name="newPassword"
+                      value={profileForm.newPassword}
+                      onChange={handleProfileChange}
+                      className="w-full mt-1 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm">Confirm Password</label>
+                    <input
+                      type="password"
+                      name="confirmNewPassword"
+                      value={profileForm.confirmNewPassword}
+                      onChange={handleProfileChange}
+                      className="w-full mt-1 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-blue-500"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-center gap-4 mt-6">
+              <button
+                onClick={() => {
+                  if (editMode) {
+                    setProfileForm({
+                      full_name: loadedProfile?.full_name || "",
+                      email: loadedProfile?.email || "",
+                      phone: loadedProfile?.phone || "",
+                      gender: loadedProfile?.gender || "",
+                      age: loadedProfile?.age || "",
+                      address: loadedProfile?.address || "",
+                      currentPassword: "",
+                      newPassword: "",
+                      confirmNewPassword: "",
+                    });
+                  }
+                  setEditMode(!editMode);
+                }}
+                className="px-8 py-2 rounded-lg border border-[#4f6df5] text-[#4f6df5]"
+              >
+                {editMode ? "Cancel" : "Edit"}
+              </button>
+
+              {editMode && (
+                <button
+                  onClick={handleSaveProfile}
+                  className="px-8 py-2 rounded-lg bg-[#4f6df5] text-white hover:bg-[#3d54d1]"
+                >
+                  Save
                 </button>
-              </div>
-              <div className="px-4 sm:px-6 py-5 space-y-6">
-                {!editMode && (
-                  <div className="space-y-5">
-                    <div>
-                      <label className="text-xs text-gray-500">Full Name</label>
-                      <div className="mt-1 text-sm bg-gray-100/60 dark:bg-gray-800/50 p-2 rounded-lg">{loadedProfile.name}</div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-500">Email</label>
-                      <div className="mt-1 text-sm bg-gray-100/60 dark:bg-gray-800/50 p-2 rounded-lg">{loadedProfile.email}</div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-500">Phone</label>
-                      <div className="mt-1 text-sm bg-gray-100/60 dark:bg-gray-800/50 p-2 rounded-lg">{loadedProfile.phone}</div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-500">Age</label>
-                      <div className="mt-1 text-sm bg-gray-100/60 dark:bg-gray-800/50 p-2 rounded-lg">{loadedProfile.age}</div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-500">Address</label>
-                      <div className="mt-1 text-sm bg-gray-100/60 dark:bg-gray-800/50 p-2 rounded-lg">{loadedProfile.address}</div>
-                    </div>
-
-                    <div className="flex justify-end pt-3">
-                      <button onClick={() => setEditMode(true)} className="px-5 py-2 bg-[#4f6df5] text-white rounded-lg hover:bg-[#3e55d6] shadow-md">
-                        Edit
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {editMode && (
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               
-                      <div>
-                        <label className="text-xs text-gray-500">Full Name</label>
-                        <input
-                          type="text"
-                          name="name"
-                          value={profileForm.name}
-                          onChange={handleProfileChange}
-                          className="mt-1 w-full p-2 rounded-lg border dark:bg-gray-900"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500">Email</label>
-                        <input
-                          type="email"
-                          name="email"
-                          value={profileForm.email}
-                          onChange={handleProfileChange}
-                          className="mt-1 w-full p-2 rounded-lg border dark:bg-gray-900"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-xs text-gray-500">Phone</label>
-                        <input
-                          type="text"
-                          name="phone"
-                          value={profileForm.phone}
-                          onChange={handleProfileChange}
-                          className="mt-1 w-full p-2 rounded-lg border dark:bg-gray-900"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-xs text-gray-500">Age</label>
-                        <input
-                          type="number"
-                          name="age"
-                          value={profileForm.age}
-                          onChange={handleProfileChange}
-                          className="mt-1 w-full p-2 rounded-lg border dark:bg-gray-900"
-                        />
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <label className="text-xs text-gray-500">Address</label>
-                        <textarea
-                          name="address"
-                          value={profileForm.address}
-                          onChange={handleProfileChange}
-                          className="mt-1 w-full p-2 rounded-lg border dark:bg-gray-900"
-                        />
-                      </div>
-
-                      <div className="md:col-span-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Change Password</h4>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                 
-                          <div>
-                            <label className="text-xs text-gray-500">Current Password</label>
-                            <input
-                              type="password"
-                              name="currentPassword"
-                              value={profileForm.currentPassword}
-                              onChange={handleProfileChange}
-                              className="mt-1 w-full p-2 rounded-lg border dark:bg-gray-900"
-                              placeholder="Enter current password"
-                            />
-                          </div>
-
-                        
-                          <div>
-                            <label className="text-xs text-gray-500">New Password</label>
-                            <input
-                              type="password"
-                              name="newPassword"
-                              value={profileForm.newPassword}
-                              onChange={handleProfileChange}
-                              className="mt-1 w-full p-2 rounded-lg border dark:bg-gray-900"
-                              placeholder="Enter new strong password"
-                            />
-                            <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                              8+ chars, uppercase, lowercase, number, special char.
-                            </p>
-                          </div>
-
-                          <div className="sm:col-span-2">
-                            <label className="text-xs text-gray-500">Confirm New Password</label>
-                            <input
-                              type="password"
-                              name="confirmNewPassword"
-                              value={profileForm.confirmNewPassword}
-                              onChange={handleProfileChange}
-                              className="mt-1 w-full p-2 rounded-lg border dark:bg-gray-900"
-                              placeholder="Re-enter new password"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-3">
-                      <button
-                        onClick={closeProfile}
-                        className="w-full sm:w-auto px-5 py-2 border rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition"
-                      >
-                        Cancel
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          const changed = [];
-                          if (profileForm.name !== loadedProfile.name) changed.push("Name");
-                          if (profileForm.email !== loadedProfile.email) changed.push("Email");
-                          if (profileForm.phone !== loadedProfile.phone) changed.push("Phone");
-                          if (profileForm.age !== loadedProfile.age) changed.push("Age");
-                          if (profileForm.address !== loadedProfile.address) changed.push("Address");
-
-                          const wantsPassword =
-                            profileForm.currentPassword || profileForm.newPassword || profileForm.confirmNewPassword;
-
-                          if (wantsPassword) {
-                            if (profileForm.currentPassword !== loadedProfile.password) {
-                              addNotification({ message: "Current password incorrect", type: "error" });
-                              return;
-                            }
-                            if (profileForm.newPassword !== profileForm.confirmNewPassword) {
-                              addNotification({ message: "New passwords do not match", type: "error" });
-                              return;
-                            }
-                            const strength = validatePasswordStrength(profileForm.newPassword);
-                            if (!strength.ok) {
-                              addNotification({
-                                message: "Weak password. Use uppercase, lowercase, number, special char.",
-                                type: "error",
-                              });
-                              return;
-                            }
-                            changed.push("Password");
-                          }
-
-                          const updated = {
-                            name: profileForm.name,
-                            email: profileForm.email,
-                            phone: profileForm.phone,
-                            age: profileForm.age,
-                            address: profileForm.address,
-                            password: wantsPassword ? profileForm.newPassword : loadedProfile.password,
-                          };
-
-                          localStorage.setItem("admin_profile", JSON.stringify(updated));
-                          setLoadedProfile(updated);
-
-                          changed.forEach((field) => addNotification({ message: `${field} updated`, type: "info" }));
-
-                          setEditMode(false);
-                          // keep modal open after save? previous behavior closed modal; match old behavior by closing:
-                          setProfileOpen(false);
-                        }}
-                        className="w-full sm:w-auto px-5 py-2 bg-[#4f6df5] text-white rounded-lg hover:bg-[#3e55d6] shadow-md"
-                      >
-                        Save Details
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>
