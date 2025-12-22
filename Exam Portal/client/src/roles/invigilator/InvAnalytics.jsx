@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
@@ -15,21 +14,12 @@ import {
 
 export default function Analytics() {
 
-  // -------------- STATES --------------
   const [summary, setSummary] = useState(null);
   const [breakdown, setBreakdown] = useState(null);
   const [activity, setActivity] = useState(null);
   const [monthlyAttempts, setMonthlyAttempts] = useState([]);
   const [examTypeAttempts, setExamTypeAttempts] = useState([]);
 
-  // dropdowns
-  const [lineDropdown, setLineDropdown] = useState(false);
-  const [lineFilter, setLineFilter] = useState("Last 2 Weeks");
-
-  const [examDropdown, setExamDropdown] = useState(false);
-  const [examFilter, setExamFilter] = useState("All Exams");
-
-  // -------------- FETCH DATA FROM BACKEND --------------
   useEffect(() => {
     fetchSummary();
     fetchBreakdown();
@@ -63,124 +53,119 @@ export default function Analytics() {
     setExamTypeAttempts(res.data.exam_type_attempts);
   };
 
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#1b1c1f] p-8 transition-all">
+    <>
+     
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        Analytics
+      </h1>
+      <p className="text-gray-500 dark:text-gray-300 mb-10">
+        View your grading statistics and performance
+      </p>
 
-      {/* ------------------- HEADER ------------------- */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-          Analytics
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          View your grading statistics and performance
-        </p>
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
-
-      {/* ------------------- SUMMARY CARDS ------------------- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-
-        {/* CARD 1 - Grading Summary */}
         {summary && (
-          <div className="bg-white dark:bg-[#23272A] rounded-xl border shadow-sm p-6 border-gray-200 dark:border-[#2f3237]">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-gray-300 dark:border-gray-700">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
               Grading Summary
             </h3>
 
-            <div className="space-y-3 text-gray-700 dark:text-gray-300">
-              <div className="flex justify-between"><span>Total Graded</span><span>{summary.total_graded}</span></div>
-              <div className="flex justify-between"><span>Pending</span><span>{summary.pending}</span></div>
-              <div className="flex justify-between"><span>Total Exams</span><span>{summary.total_exams}</span></div>
-              <div className="flex justify-between"><span>Average Time</span><span>{summary.avg_time} min</span></div>
+            <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+              <Row label="Total Graded" value={summary.total_graded} />
+              <Row label="Pending" value={summary.pending} />
+              <Row label="Total Exams" value={summary.total_exams} />
+              <Row label="Average Time" value={`${summary.avg_time} min`} />
             </div>
           </div>
         )}
 
-        {/* CARD 2 - Breakdown */}
         {breakdown && (
-          <div className="bg-white dark:bg-[#23272A] rounded-xl border shadow-sm p-6 border-gray-200 dark:border-[#2f3237]">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-gray-300 dark:border-gray-700">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
               Grading Breakdown
             </h3>
 
-            <div className="space-y-3 text-gray-700 dark:text-gray-300">
-              <div className="flex justify-between"><span>Coding Exams</span><span>{breakdown.coding_exams}</span></div>
-              <div className="flex justify-between"><span>Descriptive Exams</span><span>{breakdown.descriptive_exams}</span></div>
-              <div className="flex justify-between"><span>Mixed Exams</span><span>{breakdown.mixed_exams}</span></div>
-              <div className="flex justify-between"><span>Total Exams</span><span>{breakdown.total_exams}</span></div>
-              <div className="flex justify-between"><span>Lowest Score</span><span>{breakdown.lowest_score}</span></div>
-              <div className="flex justify-between"><span>Improvement %</span><span>{breakdown.improvement}%</span></div>
+            <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+              <Row label="Coding Exams" value={breakdown.coding_exams} />
+              <Row label="Descriptive Exams" value={breakdown.descriptive_exams} />
+              <Row label="Mixed Exams" value={breakdown.mixed_exams} />
+              <Row label="Total Exams" value={breakdown.total_exams} />
+              <Row label="Lowest Score" value={breakdown.lowest_score} />
+              <Row label="Improvement %" value={`${breakdown.improvement}%`} />
             </div>
           </div>
         )}
 
-        {/* CARD 3 - Activity */}
         {activity && (
-          <div className="bg-white dark:bg-[#23272A] rounded-xl border shadow-sm p-6 border-gray-200 dark:border-[#2f3237]">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-gray-300 dark:border-gray-700">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
               Grade Activity
             </h3>
 
-            <div className="space-y-3 text-gray-700 dark:text-gray-300">
-              <div className="flex justify-between"><span>Graded Today</span><span>{activity.today}</span></div>
-              <div className="flex justify-between"><span>Graded This Week</span><span>{activity.week}</span></div>
-              <div className="flex justify-between"><span>Graded This Month</span><span>{activity.month}</span></div>
-              <div className="flex justify-between"><span>Graded This Year</span><span>{activity.year}</span></div>
+            <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+              <Row label="Graded Today" value={activity.today} />
+              <Row label="Graded This Week" value={activity.week} />
+              <Row label="Graded This Month" value={activity.month} />
+              <Row label="Graded This Year" value={activity.year} />
             </div>
           </div>
         )}
 
       </div>
 
-
-
-      {/* ------------------- LINE CHART ------------------- */}
-      <div className="bg-white dark:bg-[#23272A] rounded-xl border shadow-sm p-6 mb-8 border-gray-200 dark:border-[#2f3237]">
-
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">Monthly Attempts Trend</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Insight into exam activity</p>
-          </div>
-
+      <div className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-gray-300 dark:border-gray-700 mb-10">
+        <div className="mb-6">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Monthly Attempts Trend
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Insight into exam activity
+          </p>
         </div>
 
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={monthlyAttempts}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-            <XAxis dataKey="month" tick={{ fill: "#ccc" }} />
-            <YAxis tick={{ fill: "#ccc" }} />
-            <Tooltip contentStyle={{ background: "#222", border: "none", color: "#fff" }} />
-            <Line type="monotone" dataKey="attempts" stroke="#4F6BFF" strokeWidth={2} />
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="attempts" stroke="#3B82F6" strokeWidth={2} />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-
-
-      {/* ------------------- BAR CHART ------------------- */}
-      <div className="bg-white dark:bg-[#23272A] rounded-xl border shadow-sm p-6 border-gray-200 dark:border-[#2f3237]">
-
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">Exam Attempts by Type</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Insights by exam categories</p>
-          </div>
+ 
+      <div className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-gray-300 dark:border-gray-700">
+        <div className="mb-6">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Exam Attempts by Type
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Insights by exam categories
+          </p>
         </div>
 
         <ResponsiveContainer width="100%" height={350}>
           <BarChart data={examTypeAttempts}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#444" />
-            <XAxis dataKey="exam_type" tick={{ fill: "#ccc" }} />
-            <YAxis tick={{ fill: "#ccc" }} />
-            <Tooltip contentStyle={{ background: "#222", border: "none", color: "#fff" }} />
-            <Bar dataKey="attempts" fill="#4F6BFF" radius={[8, 8, 0, 0]} barSize={40} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="exam_type" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="attempts" fill="#3B82F6" radius={[8, 8, 0, 0]} barSize={40} />
           </BarChart>
         </ResponsiveContainer>
       </div>
-
-    </div>
+    </>
   );
 }
 
+
+function Row({ label, value }) {
+  return (
+    <div className="flex justify-between">
+      <span>{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  );
+}

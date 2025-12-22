@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { FileText } from "lucide-react";
@@ -11,7 +10,6 @@ const GradingQueue = () => {
   const [marks, setMarks] = useState({});
   const [totalMarks, setTotalMarks] = useState(0);
 
-  // FETCH PRIORITY QUEUE
   useEffect(() => {
     fetchQueue();
   }, []);
@@ -21,30 +19,26 @@ const GradingQueue = () => {
       const res = await axios.get("/api/priorityQueue", { withCredentials: true });
       setQueue(res.data.priority_queue || []);
     } catch (err) {
-      console.log("Queue Error:", err);
       setQueue([]);
     }
   };
 
-  // FETCH QUESTIONS FOR SELECTED STUDENT
   const loadQuestions = async (submission_id) => {
     try {
-      const res = await axios.get(`/api/priorityQueue/${submission_id}/questions`, {
-        withCredentials: true,
-      });
+      const res = await axios.get(
+        `/api/priorityQueue/${submission_id}/questions`,
+        { withCredentials: true }
+      );
 
       const qList = res.data.question || [];
       setQuestions(qList);
 
-      // set initial marks
       const initialMarks = {};
       qList.forEach((q) => {
         initialMarks[q.question_id] = q.marks;
       });
-
       setMarks(initialMarks);
     } catch (err) {
-      console.log("Questions error:", err);
       setQuestions([]);
     }
   };
@@ -64,13 +58,14 @@ const GradingQueue = () => {
         { question_id, marks: value },
         { withCredentials: true }
       );
-    } catch (err) {
-      console.log("Mark update error:", err);
-    }
+    } catch (err) {}
   };
 
   const goToFinalSubmit = () => {
-    const total = Object.values(marks).reduce((sum, m) => sum + Number(m || 0), 0);
+    const total = Object.values(marks).reduce(
+      (sum, m) => sum + Number(m || 0),
+      0
+    );
     setTotalMarks(total);
     setStep("marks");
   };
@@ -86,54 +81,60 @@ const GradingQueue = () => {
       setStep("queue");
       setSelectedStudent(null);
       fetchQueue();
-    } catch (err) {
-      console.log("Final submit error:", err);
-    }
+    } catch (err) {}
   };
 
   return (
-    <div className="p-8 min-h-screen bg-gray-50 dark:bg-[#1b1c1f] transition-all">
-
-      <style>
-        {`
-          input[type=number]::-webkit-inner-spin-button,
-          input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-          input[type=number] { -moz-appearance: textfield; }
-        `}
-      </style>
-
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+    <>
+    
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
         Grading Queue
       </h1>
-      <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">
+      <p className="text-gray-500 dark:text-gray-300 mb-10">
         Prioritized list of submissions to grade
       </p>
 
-      {/* QUEUE LIST */}
+    
       {step === "queue" && (
-        <div className="bg-white dark:bg-[#23272A] rounded-xl border border-gray-200 dark:border-[#2f3237] p-6">
-          <h2 className="text-lg font-semibold dark:text-white mb-4">
+        <div className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-gray-300 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
             Priority Queue
           </h2>
 
           {(queue || []).map((item) => (
             <div
               key={item.submission_id}
-              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#1f2225] rounded-lg border dark:border-[#2f3237] mb-3"
+              className="
+                flex items-center justify-between
+                p-4 mb-4
+                rounded-xl
+                bg-white dark:bg-[#222222]
+                border border-gray-300 dark:border-gray-700
+              "
             >
               <div>
-                <h3 className="font-semibold dark:text-white">{item.student_name}</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-300">{item.student_rollno}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-300">
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  {item.student_name}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {item.student_rollno}
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">
                   Submitted: {new Date(item.submitted_at).toLocaleString()}
                 </p>
               </div>
 
               <button
                 onClick={() => handleGradeNow(item)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-6 rounded-lg flex items-center gap-2"
+                className="
+                  flex items-center gap-2
+                  px-6 py-2.5
+                  rounded-lg
+                  bg-blue-600 hover:bg-blue-700
+                  text-white font-medium
+                "
               >
-                <FileText className="w-4 h-4" />
+                <FileText size={16} />
                 Grade Now
               </button>
             </div>
@@ -141,24 +142,30 @@ const GradingQueue = () => {
         </div>
       )}
 
-      {/* QUESTIONS PAGE */}
       {step === "questions" && (
-        <div className="bg-white dark:bg-[#23272A] border dark:border-[#2f3237] p-6 rounded-xl max-w-3xl mx-auto">
-
-          <h2 className="text-xl font-semibold dark:text-white mb-6">Questions</h2>
+        <div className="max-w-3xl mx-auto p-6 rounded-2xl bg-white dark:bg-[#141414] border border-gray-300 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+            Questions
+          </h2>
 
           {(questions || []).map((q) => (
             <div key={q.question_id} className="mb-6">
-              <p className="text-gray-800 dark:text-gray-200 mb-2 font-medium">
+              <p className="font-medium text-gray-900 dark:text-gray-200 mb-2">
                 Q{q.question_id}. {q.question_text}
               </p>
 
               <input
                 type="number"
                 value={marks[q.question_id] || ""}
-                onChange={(e) => updateQuestionMark(q.question_id, e.target.value)}
-                placeholder="Marks"
-                className="w-24 p-3 rounded border dark:bg-[#1f2225] dark:border-[#2f3237] dark:text-white text-center"
+                onChange={(e) =>
+                  updateQuestionMark(q.question_id, e.target.value)
+                }
+                className="
+                  w-24 px-3 py-2
+                  rounded-lg text-center
+                  border border-gray-300 dark:border-gray-700
+                  dark:bg-[#222222] dark:text-white
+                "
               />
             </div>
           ))}
@@ -166,14 +173,14 @@ const GradingQueue = () => {
           <div className="flex justify-between mt-8">
             <button
               onClick={() => setStep("queue")}
-              className="px-6 py-2 border rounded-lg dark:border-[#2f3237] dark:text-white"
+              className="px-6 py-2 rounded-lg border border-gray-300 dark:border-gray-700 dark:text-white"
             >
               Back
             </button>
 
             <button
               onClick={goToFinalSubmit}
-              className="px-6 py-2 bg-indigo-600 text-white rounded-lg"
+              className="px-6 py-2 rounded-lg bg-blue-600 text-white"
             >
               Next
             </button>
@@ -181,38 +188,36 @@ const GradingQueue = () => {
         </div>
       )}
 
-      {/* FINAL MARKS PAGE */}
+
       {step === "marks" && (
-        <div className="bg-white dark:bg-[#23272A] border dark:border-[#2f3237] p-8 rounded-xl max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold dark:text-white text-center mb-6">
+        <div className="max-w-2xl mx-auto p-8 rounded-2xl bg-white dark:bg-[#141414] border border-gray-300 dark:border-gray-700">
+          <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-6">
             {selectedStudent?.student_name}
           </h2>
 
-          <div className="text-center text-xl text-gray-700 dark:text-gray-200 mb-6">
+          <p className="text-center text-xl text-gray-700 dark:text-gray-200 mb-8">
             Total Marks: <span className="font-bold">{totalMarks}</span>
-          </div>
+          </p>
 
           <div className="flex justify-center gap-4">
             <button
               onClick={() => setStep("questions")}
-              className="px-10 py-3 border rounded-lg dark:border-[#2f3237] dark:text-white"
+              className="px-8 py-2 rounded-lg border border-gray-300 dark:border-gray-700 dark:text-white"
             >
               Back
             </button>
 
             <button
               onClick={submitFinalMarks}
-              className="px-12 py-3 bg-indigo-600 text-white rounded-lg"
+              className="px-10 py-2 rounded-lg bg-blue-600 text-white"
             >
               Submit
             </button>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
 export default GradingQueue;
-
-

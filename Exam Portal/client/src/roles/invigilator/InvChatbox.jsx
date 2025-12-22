@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import InvLayout from "../components/InvLayout";
+import InvLayout from "../components/InvigilatorLayout";
 import { Send, ChevronDown, Paperclip, FileText } from "lucide-react";
 
 export default function AdminChatbox() {
@@ -166,14 +166,17 @@ const [chats, setChats] = useState([
 
   return (
     <InvLayout>
-      <h1 className="text-2xl font-bold mb-1 dark:text-white">Messages</h1>
-      <p className="text-gray-500 dark:text-gray-300 mb-6">
-        Communicate with Super admin, users and invigilator
-      </p>
+     <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+  Messages
+</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* LEFT SIDEBAR */}
+<p className="text-sm text-gray-500 dark:text-gray-300 mb-8">
+  Communicate with Super admin, users and invigilator
+</p>
+
+<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+       
         <div className="lg:col-span-1 bg-white dark:bg-[#0f0f0f] rounded-2xl shadow-lg border p-5">
           <div className="flex gap-4 mb-4 text-sm font-medium">
             {["All", "Pending", "InProgress", "Resolved", "Closed"].map((tab) => (
@@ -235,10 +238,10 @@ const [chats, setChats] = useState([
           </div>
         </div>
 
-        {/* CHAT WINDOW */}
+     
         <div className="lg:col-span-2 bg-white dark:bg-[#0f0f0f] rounded-2xl shadow-lg border flex flex-col">
           
-          {/* HEADER */}
+
           <div className="flex items-center justify-between p-5 border-b">
             <div>
               <h2 className="font-bold text-lg text-gray-900 dark:text-white">
@@ -277,11 +280,10 @@ const [chats, setChats] = useState([
             </div>
           </div>
 
-          {/* MESSAGES (SCROLL FIX APPLIED) */}
           <div
             className="overflow-y-auto p-6 space-y-6 custom-scroll"
             style={{
-              height: "60vh",      // ⭐ FIXED SCROLL HEIGHT
+              height: "60vh",      
               scrollBehavior: "smooth",
             }}
           >
@@ -340,7 +342,6 @@ const [chats, setChats] = useState([
             <div ref={messagesEndRef} />
           </div>
 
-          {/* INPUT */}
           <div className="p-4 border-t bg-gray-50 dark:bg-[#0e0e0e]">
             <div className="flex items-center gap-3 bg-white dark:bg-gray-900 rounded-xl p-3 shadow border">
 

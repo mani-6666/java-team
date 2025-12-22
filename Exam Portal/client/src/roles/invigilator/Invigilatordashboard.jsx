@@ -1,11 +1,8 @@
-
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Clock, CheckCircle, FileText, FileEdit } from "lucide-react";
 
 const InvigilatorDashboard = () => {
-
-  // SAFE default states ↓↓↓
   const [summary, setSummary] = useState({});
   const [recent, setRecent] = useState([]);
   const [progress, setProgress] = useState([]);
@@ -62,7 +59,6 @@ const InvigilatorDashboard = () => {
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Invigilator Dashboard</h1>
       <p className="text-gray-500 dark:text-gray-300 mb-10">Manage and evaluate student submissions</p>
 
-      {/* TOP CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         <DashboardCard icon={Clock} count={summary.pending_review || 0} label="Pending Review" sub="Awaiting Evaluation" />
         <DashboardCard icon={CheckCircle} count={summary.graded || 0} label="Graded" sub="Completed Evaluation" />
@@ -70,10 +66,8 @@ const InvigilatorDashboard = () => {
         <DashboardCard icon={FileEdit} count={summary.exams_created || 0} label="Exams Created" sub="Total Exams Created" />
       </div>
 
-      {/* RECENT + PROGRESS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
 
-        {/* RECENT SUBMISSIONS */}
         <div className="p-6 rounded-2xl border bg-white dark:bg-[#141414] col-span-2 border-gray-300 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Recent Submissions</h2>
 
@@ -96,7 +90,6 @@ const InvigilatorDashboard = () => {
           </div>
         </div>
 
-        {/* GRADING PROGRESS */}
         <div className="p-6 rounded-2xl border bg-white dark:bg-[#141414] border-gray-300 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Grading Progress</h2>
 
@@ -116,7 +109,7 @@ const InvigilatorDashboard = () => {
         </div>
       </div>
 
-      {/* GRADING ACTIVITY */}
+
       <div className="p-6 rounded-xl border bg-white dark:bg-[#141414] border-gray-300 dark:border-gray-700">
         <h2 className="text-xl font-semibold dark:text-white mb-4">Grading Activity</h2>
 
@@ -141,8 +134,6 @@ const InvigilatorDashboard = () => {
 
 export default InvigilatorDashboard;
 
-
-// CARD COMPONENT
 function DashboardCard({ icon: Icon, count, label, sub }) {
   return (
     <div className="p-6 rounded-2xl bg-white dark:bg-[#141414] border border-gray-200 dark:border-gray-700 shadow-sm">
