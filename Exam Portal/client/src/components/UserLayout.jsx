@@ -115,11 +115,11 @@ export default function UserLayout({ children }) {
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-[#0D1117]">
 
       <aside
-        className={`fixed top-0 left-0 z-40 h-full w-64 bg-white dark:bg-gray-900 border-r dark:border-gray-800 shadow-lg transition-transform duration-300 flex flex-col ${
+        className={`fixed top-0 left-0 z-40 h-full w-64 bg-white dark:bg-gray-900 shadow-lg transition-transform duration-300 flex flex-col ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-64 md:translate-x-0"
         }`}
       >
-        <div className="flex items-center gap-2 h-16 px-6 border-b dark:border-gray-800">
+        <div className="flex items-center gap-2 h-16 px-6 ">
           <GraduationCap size={22} className="text-[#3641EC]" />
           <span className="text-lg font-semibold text-[#3641EC]">ExamMarkPro</span>
         </div>
@@ -156,7 +156,7 @@ export default function UserLayout({ children }) {
       )}
 
       <div className="flex flex-col flex-1 overflow-hidden md:pl-64">
-        <header className="h-16 bg-white dark:bg-gray-900 border-b dark:border-gray-800 px-4 sm:px-8 flex items-center justify-between">
+        <header className="h-16 bg-white dark:bg-gray-900 px-4 sm:px-8 flex items-center justify-between">
           <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-800">
             <Menu size={20} />
           </button>
