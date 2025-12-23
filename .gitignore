@@ -1,1 +1,15 @@
-Exam Portal/server/config/firebase-service-account.json
+
+# Jest / JUnit reports
+coverage/
+reports/
+test-results/
+junit.xml
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+
+# Environment / secrets
+.env
+.env.local
+Exam Portal/server/config/firebase-*.json
